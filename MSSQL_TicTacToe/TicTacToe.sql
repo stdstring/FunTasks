@@ -1,14 +1,14 @@
-USE master;
+USE master
 GO
 
 IF DB_ID (N'TicTacToe') IS NOT NULL
-    DROP DATABASE TicTacToe;
+    DROP DATABASE TicTacToe
 GO
 
-CREATE DATABASE TicTacToe;
+CREATE DATABASE TicTacToe
 GO
 
-USE TicTacToe;
+USE TicTacToe
 GO
 
 /* TODO (std_string) : use domain for 'U' = User and 'C' = Comp */
@@ -36,9 +36,8 @@ CONSTRAINT GameSession_FK FOREIGN KEY (GameID) REFERENCES GameSession(GameID) ON
 GO
 
 /* INTERNAL */
-
 IF OBJECT_ID (N'GetCellValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetCellValue;
+    DROP FUNCTION GetCellValue
 GO
 
 CREATE FUNCTION GetCellValue (@GameID varchar(100)/*uniqueidentifier*/, @Row int, @Column int)
@@ -48,11 +47,11 @@ BEGIN
     DECLARE @Value char(1)
     SELECT @Value = Value FROM GameSessionLog WHERE (GameId = @GameID) and ([Row] = @Row) and ([Column] = @Column)
     RETURN ISNULL(@Value, ' ')
-END;
+END
 GO
 
 IF OBJECT_ID(N'MakeStep', N'P') IS NOT NULL
-    DROP PROCEDURE MakeStep;
+    DROP PROCEDURE MakeStep
 GO
 
 CREATE PROCEDURE MakeStep
@@ -70,7 +69,7 @@ AS
 GO
 
 IF OBJECT_ID (N'GetRowValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetRowValue;
+    DROP FUNCTION GetRowValue
 GO
 
 CREATE FUNCTION GetRowValue (@GameID varchar(100)/*uniqueidentifier*/, @Row int)
@@ -78,11 +77,11 @@ RETURNS char(3)
 AS
 BEGIN
     RETURN dbo.GetCellValue(@GameID, @Row, 1) + dbo.GetCellValue(@GameID, @Row, 2) + dbo.GetCellValue(@GameID, @Row, 3)
-END;
+END
 GO
 
 IF OBJECT_ID (N'GetColumnValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetColumnValue;
+    DROP FUNCTION GetColumnValue
 GO
 
 CREATE FUNCTION GetColumnValue (@GameID varchar(100)/*uniqueidentifier*/, @Column int)
@@ -90,11 +89,11 @@ RETURNS char(3)
 AS
 BEGIN
     RETURN dbo.GetCellValue(@GameID, 1, @Column) + dbo.GetCellValue(@GameID, 2, @Column) + dbo.GetCellValue(@GameID, 3, @Column)
-END;
+END
 GO
 
 IF OBJECT_ID (N'GetDirectDiagonalValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetDirectDiagonalValue;
+    DROP FUNCTION GetDirectDiagonalValue
 GO
 
 CREATE FUNCTION GetDirectDiagonalValue (@GameID varchar(100)/*uniqueidentifier*/)
@@ -102,11 +101,11 @@ RETURNS char(3)
 AS
 BEGIN
     RETURN dbo.GetCellValue(@GameID, 1, 1) + dbo.GetCellValue(@GameID, 2, 2) + dbo.GetCellValue(@GameID, 3, 3)
-END;
+END
 GO
 
 IF OBJECT_ID (N'GetInverseDiagonalValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetInverseDiagonalValue;
+    DROP FUNCTION GetInverseDiagonalValue
 GO
 
 CREATE FUNCTION GetInverseDiagonalValue (@GameID varchar(100)/*uniqueidentifier*/)
@@ -114,11 +113,11 @@ RETURNS char(3)
 AS
 BEGIN
     RETURN dbo.GetCellValue(@GameID, 1, 3) + dbo.GetCellValue(@GameID, 2, 2) + dbo.GetCellValue(@GameID, 3, 1)
-END;
+END
 GO
 
 IF OBJECT_ID(N'ProcessUserStep', N'P') IS NOT NULL
-    DROP PROCEDURE ProcessUserStep;
+    DROP PROCEDURE ProcessUserStep
 GO
 
 CREATE PROCEDURE ProcessUserStep
@@ -138,7 +137,7 @@ AS
 GO
 
 IF OBJECT_ID(N'ProcessCompStep', N'P') IS NOT NULL
-    DROP PROCEDURE ProcessCompStep;
+    DROP PROCEDURE ProcessCompStep
 GO
 
 CREATE PROCEDURE ProcessCompStep @GameID varchar(100)/*uniqueidentifier*/
@@ -165,7 +164,7 @@ GO
 /* API */
 
 IF OBJECT_ID(N'StartGame', N'P') IS NOT NULL
-    DROP PROCEDURE StartGame;
+    DROP PROCEDURE StartGame
 GO
 
 CREATE PROCEDURE StartGame
@@ -182,7 +181,7 @@ AS
 GO
 
 IF OBJECT_ID(N'FinishGame', N'P') IS NOT NULL
-    DROP PROCEDURE FinishGame;
+    DROP PROCEDURE FinishGame
 GO
 
 CREATE PROCEDURE FinishGame @GameID varchar(100)/*uniqueidentifier*/
@@ -192,7 +191,7 @@ AS
 GO
 
 IF OBJECT_ID(N'GetGameLog', N'P') IS NOT NULL
-    DROP PROCEDURE GetGameLog;
+    DROP PROCEDURE GetGameLog
 GO
 
 CREATE PROCEDURE GetGameLog @GameID varchar(100)/*uniqueidentifier*/
@@ -202,7 +201,7 @@ AS
 GO
 
 IF OBJECT_ID(N'ShowBoard', N'P') IS NOT NULL
-    DROP PROCEDURE ShowBoard;
+    DROP PROCEDURE ShowBoard
 GO
 
 CREATE PROCEDURE ShowBoard @GameID varchar(100)/*uniqueidentifier*/
@@ -218,7 +217,7 @@ AS
 GO
 
 IF OBJECT_ID (N'GetGameWinner', N'FN') IS NOT NULL
-    DROP FUNCTION GetGameWinner;
+    DROP FUNCTION GetGameWinner
 GO
 
 CREATE FUNCTION GetGameWinner (@GameID varchar(100)/*uniqueidentifier*/)
@@ -247,11 +246,11 @@ BEGIN
     IF (@LogCount = 9)
         RETURN 'Draw'
     RETURN NULL
-END;
+END
 GO
 
 IF OBJECT_ID('ProcessStep', 'P') IS NOT NULL
-    DROP PROCEDURE ProcessStep;
+    DROP PROCEDURE ProcessStep
 GO
 
 CREATE PROCEDURE ProcessStep

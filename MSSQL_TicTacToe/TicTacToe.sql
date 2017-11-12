@@ -198,14 +198,28 @@ AS
     DELETE FROM Impl.GameSession WHERE GameID = @GameID
 GO
 
-IF OBJECT_ID(N'dbo.GetGameLog', N'P') IS NOT NULL
-    DROP PROCEDURE dbo.GetGameLog
+IF OBJECT_ID(N'dbo.ShowGameLog', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.ShowGameLog
 GO
 
-CREATE PROCEDURE dbo.GetGameLog @GameID varchar(100)
+CREATE PROCEDURE dbo.ShowGameLog @GameID varchar(100)
 AS
     SET NOCOUNT ON
-    SELECT GameID, Step, [Row], [Column], Value FROM Impl.GameSessionLog WHERE GameID = @GameID ORDER BY Step ASC
+    DECLARE @Step int
+    DECLARE @Row int
+    DECLARE @Column int
+    DECLARE @Value char(1)
+    DECLARE LogCursor CURSOR READ_ONLY FOR SELECT Step, [Row], [Column], Value FROM Impl.GameSessionLog WHERE GameID = @GameID ORDER BY Step ASC
+    OPEN LogCursor
+    FETCH NEXT FROM LogCursor INTO @Step, @Row, @Column, @Value
+    PRINT N'GAME LOG:'
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        PRINT N'Step = ' + STR(@Step, 1) + N', Row = ' + STR(@Row, 1) + N', Column = ' + STR(@Column, 1) + N', Value = ' + @Value
+        FETCH NEXT FROM LogCursor INTO @Step, @Row, @Column, @Value
+    END
+    CLOSE LogCursor
+    DEALLOCATE LogCursor
 GO
 
 IF OBJECT_ID(N'dbo.ShowBoard', N'P') IS NOT NULL
@@ -215,13 +229,19 @@ GO
 CREATE PROCEDURE dbo.ShowBoard @GameID varchar(100)
 AS
     SET NOCOUNT ON
-    PRINT REPLICATE(N'=', 7)
-    PRINT N'|' + Impl.GetCellValue(@GameID, 1, 1) + N'|' + Impl.GetCellValue(@GameID, 1, 2) + N'|' + Impl.GetCellValue(@GameID, 1, 3) + N'|'
-    PRINT REPLICATE(N'=', 7)
-    PRINT N'|' + Impl.GetCellValue(@GameID, 2, 1) + N'|' + Impl.GetCellValue(@GameID, 2, 2) + N'|' + Impl.GetCellValue(@GameID, 2, 3) + N'|'
-    PRINT REPLICATE(N'=', 7)
-    PRINT N'|' + Impl.GetCellValue(@GameID, 3, 1) + N'|' + Impl.GetCellValue(@GameID, 3, 2) + N'|' + Impl.GetCellValue(@GameID, 3, 3) + N'|'
-    PRINT REPLICATE(N'=', 7)
+    PRINT REPLICATE(N'=', 13)
+    PRINT N'|   |   |   |'
+    PRINT N'| ' + Impl.GetCellValue(@GameID, 1, 1) + N' | ' + Impl.GetCellValue(@GameID, 1, 2) + N' | ' + Impl.GetCellValue(@GameID, 1, 3) + N' |'
+    PRINT N'|   |   |   |'
+    PRINT REPLICATE(N'=', 13)
+    PRINT N'|   |   |   |'
+    PRINT N'| ' + Impl.GetCellValue(@GameID, 2, 1) + N' | ' + Impl.GetCellValue(@GameID, 2, 2) + N' | ' + Impl.GetCellValue(@GameID, 2, 3) + N' |'
+    PRINT N'|   |   |   |'
+    PRINT REPLICATE(N'=', 13)
+    PRINT N'|   |   |   |'
+    PRINT N'| ' + Impl.GetCellValue(@GameID, 3, 1) + N' | ' + Impl.GetCellValue(@GameID, 3, 2) + N' | ' + Impl.GetCellValue(@GameID, 3, 3) + N' |'
+    PRINT N'|   |   |   |'
+    PRINT REPLICATE(N'=', 13)
 GO
 
 IF OBJECT_ID (N'dbo.GetGameWinner', N'FN') IS NOT NULL
@@ -272,7 +292,8 @@ AS
     IF (@Winner IS NOT NULL)
     BEGIN
         EXECUTE dbo.ShowBoard @GameID
-        EXECUTE dbo.GetGameLog @GameID
+        --EXECUTE dbo.GetGameLog @GameID
+        EXECUTE dbo.ShowGameLog @GameID
         PRINT N'GAME IS FINISHED. WINNER = ' + @Winner
         RETURN
     END
@@ -286,13 +307,15 @@ AS
     IF (@Winner IS NOT NULL)
     BEGIN
         EXECUTE dbo.ShowBoard @GameID
-        EXECUTE dbo.GetGameLog @GameID
+        --EXECUTE dbo.GetGameLog @GameID
+        EXECUTE dbo.ShowGameLog @GameID
         PRINT N'GAME IS FINISHED. WINNER = ' + @Winner
         RETURN
     END
     EXECUTE Impl.ProcessCompStep @GameID
     EXECUTE dbo.ShowBoard @GameID
-    EXECUTE dbo.GetGameLog @GameID
+    --EXECUTE dbo.GetGameLog @GameID
+        EXECUTE dbo.ShowGameLog @GameID
     SET @Winner = dbo.GetGameWinner(@GameID)
     IF (@Winner IS NOT NULL)
         PRINT N'GAME IS FINISHED. WINNER = ' + @Winner

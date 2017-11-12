@@ -244,12 +244,12 @@ AS
     PRINT REPLICATE(N'=', 13)
 GO
 
-IF OBJECT_ID (N'dbo.GetGameWinner', N'FN') IS NOT NULL
-    DROP FUNCTION dbo.GetGameWinner
+IF OBJECT_ID (N'dbo.GetGameResult', N'FN') IS NOT NULL
+    DROP FUNCTION dbo.GetGameResult
 GO
 
-CREATE FUNCTION dbo.GetGameWinner (@GameID varchar(100))
-RETURNS varchar(10)
+CREATE FUNCTION dbo.GetGameResult (@GameID varchar(100))
+RETURNS varchar(20)
 AS
 BEGIN
     DECLARE @Row1 CHAR(3), @Row2 CHAR(3), @Row3 CHAR(3)
@@ -266,13 +266,13 @@ BEGIN
     DECLARE @FirstPlayer char(1)
     SELECT @FirstPlayer = FirstPlayer FROM Impl.GameSession WHERE GameID = @GameID
     IF (@Row1 = N'XXX' OR @Row2 = N'XXX' OR @Row3 = N'XXX' OR @Column1 = N'XXX' OR @Column2 = N'XXX' OR @Column3 = N'XXX' OR @DirectDiagonal = N'XXX' OR @InverseDiagonal = N'XXX')
-        RETURN IIF(@FirstPlayer = 'U', 'User', 'Comp')
+        RETURN IIF(@FirstPlayer = 'U', 'User', 'Comp') + ' is winner'
     IF (@Row1 = N'OOO' OR @Row2 = N'OOO' OR @Row3 = N'OOO' OR @Column1 = N'OOO' OR @Column2 = N'OOO' OR @Column3 = N'OOO' OR @DirectDiagonal = N'OOO' OR @InverseDiagonal = N'OOO')
-        RETURN IIF(@FirstPlayer = 'U', 'Comp', 'User')
+        RETURN IIF(@FirstPlayer = 'U', 'Comp', 'User') + ' is winner'
     DECLARE @LogCount int
     SELECT @LogCount = COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
     IF (@LogCount = 9)
-        RETURN 'Draw'
+        RETURN 'Result is draw'
     RETURN NULL
 END
 GO
@@ -287,38 +287,40 @@ CREATE PROCEDURE dbo.ProcessStep
     @UserStepColumn int
 AS
     SET NOCOUNT ON
-    DECLARE @Winner varchar(10)
-    SET @Winner = dbo.GetGameWinner(@GameID)
-    IF (@Winner IS NOT NULL)
+    DECLARE @GameResult varchar(20)
+    SET @GameResult = dbo.GetGameResult(@GameID)
+    IF (@GameResult IS NOT NULL)
     BEGIN
         EXECUTE dbo.ShowBoard @GameID
-        --EXECUTE dbo.GetGameLog @GameID
         EXECUTE dbo.ShowGameLog @GameID
-        PRINT N'GAME IS FINISHED. WINNER = ' + @Winner
+        PRINT N'Game is finished. ' + @GameResult
         RETURN
     END
     BEGIN TRY
         EXECUTE Impl.ProcessUserStep @GameID, @UserStepRow, @UserStepColumn
     END TRY
     BEGIN CATCH
+        DECLARE @ErrorMessage nvarchar(4000)
+        DECLARE @ErrorSeverity int
+        DECLARE @ErrorState int
+        SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
         RETURN
     END CATCH
-    SET @Winner = dbo.GetGameWinner(@GameID)
-    IF (@Winner IS NOT NULL)
+    SET @GameResult = dbo.GetGameResult(@GameID)
+    IF (@GameResult IS NOT NULL)
     BEGIN
         EXECUTE dbo.ShowBoard @GameID
-        --EXECUTE dbo.GetGameLog @GameID
         EXECUTE dbo.ShowGameLog @GameID
-        PRINT N'GAME IS FINISHED. WINNER = ' + @Winner
+        PRINT N'Game is finished. ' + @GameResult
         RETURN
     END
     EXECUTE Impl.ProcessCompStep @GameID
     EXECUTE dbo.ShowBoard @GameID
-    --EXECUTE dbo.GetGameLog @GameID
-        EXECUTE dbo.ShowGameLog @GameID
-    SET @Winner = dbo.GetGameWinner(@GameID)
-    IF (@Winner IS NOT NULL)
-        PRINT N'GAME IS FINISHED. WINNER = ' + @Winner
+    EXECUTE dbo.ShowGameLog @GameID
+    SET @GameResult = dbo.GetGameResult(@GameID)
+    IF (@GameResult IS NOT NULL)
+        PRINT N'Game is finished. ' + @GameResult
 GO
 
 /*

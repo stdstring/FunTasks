@@ -11,141 +11,154 @@ GO
 USE TicTacToe
 GO
 
-/* TODO (std_string) : use domain for 'U' = User and 'C' = Comp */
-CREATE TABLE GameSession
+IF SCHEMA_ID(N'Impl') IS NOT NULL
+    DROP SCHEMA Impl
+GO
+
+CREATE SCHEMA Impl
+GO
+
+IF OBJECT_ID(N'Impl.GameSession', N'U') IS NOT NULL
+    DROP TABLE Impl.GameSession
+GO
+
+/* 'U' = User, 'C' = Comp */
+CREATE TABLE Impl.GameSession
 (
-GameID varchar(100)/*uniqueidentifier DEFAULT(NEWID())*/ PRIMARY KEY,
-FirstPlayer char(1) not null CHECK (FirstPlayer = 'U' or FirstPlayer = 'C'),
-/*Finished bit not null DEFAULT(0)*/
-/*Winner char(1) null DEFAULT(null) CHECK (FirstPlayer = 'U' or FirstPlayer = 'C')*/
+GameID varchar(100) NOT NULL PRIMARY KEY,
+FirstPlayer char(1) NOT NULL CHECK (FirstPlayer = 'U' OR FirstPlayer = 'C')/*,
+Finished bit NOT NULL DEFAULT(0),
+Winner char(1) NULL CHECK (FirstPlayer = 'U' or FirstPlayer = 'C')*/
 )
 GO
 
+IF OBJECT_ID(N'Impl.GameSessionLog', N'U') IS NOT NULL
+    DROP TABLE Impl.GameSessionLog
+GO
 
-/* TODO (std_string) : use domain for 'X' and 'O' */
-CREATE TABLE GameSessionLog
+CREATE TABLE Impl.GameSessionLog
 (
-GameID varchar(100)/*uniqueidentifier*/ not null,
-Step int not null CHECK(Step >= 1 and Step <= 9),
-[Row] int not null CHECK([Row] >= 1 and [Row] <= 3),
-[Column] int not null CHECK([Column] >= 1 and [Column] <= 3),
-Value char(1) not null CHECK (Value = 'X' or Value = 'O'),
+GameID varchar(100) NOT NULL,
+Step int NOT NULL CHECK(Step >= 1 AND Step <= 9),
+[Row] int NOT NULL CHECK([Row] >= 1 AND [Row] <= 3),
+[Column] int NOT NULL CHECK([Column] >= 1 AND [Column] <= 3),
+Value char(1) NOT NULL CHECK (Value = 'X' OR Value = 'O'),
 CONSTRAINT GameSessionLog_PK PRIMARY KEY (GameID, Step),
 CONSTRAINT GameSession_FK FOREIGN KEY (GameID) REFERENCES GameSession(GameID) ON UPDATE CASCADE ON DELETE CASCADE
 )
 GO
 
 /* INTERNAL */
-IF OBJECT_ID (N'GetCellValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetCellValue
+IF OBJECT_ID (N'Impl.GetCellValue', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.GetCellValue
 GO
 
-CREATE FUNCTION GetCellValue (@GameID varchar(100)/*uniqueidentifier*/, @Row int, @Column int)
+CREATE FUNCTION Impl.GetCellValue (@GameID varchar(100), @Row int, @Column int)
 RETURNS char(1)
 AS
 BEGIN
     DECLARE @Value char(1)
-    SELECT @Value = Value FROM GameSessionLog WHERE (GameId = @GameID) and ([Row] = @Row) and ([Column] = @Column)
+    SELECT @Value = Value FROM Impl.GameSessionLog WHERE (GameId = @GameID) AND ([Row] = @Row) AND ([Column] = @Column)
     RETURN ISNULL(@Value, ' ')
 END
 GO
 
-IF OBJECT_ID(N'MakeStep', N'P') IS NOT NULL
-    DROP PROCEDURE MakeStep
+IF OBJECT_ID(N'Impl.MakeStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.MakeStep
 GO
 
-CREATE PROCEDURE MakeStep
-    @GameID varchar(100)/*uniqueidentifier*/,
+CREATE PROCEDURE Impl.MakeStep
+    @GameID varchar(100),
     @Row int,
     @Column int,
     @Player char(1)
 AS
     SET NOCOUNT ON
     DECLARE @FirstPlayer char(1)
-    SELECT @FirstPlayer = FirstPlayer FROM GameSession WHERE GameID = @GameID
+    SELECT @FirstPlayer = FirstPlayer FROM Impl.GameSession WHERE GameID = @GameID
     DECLARE @LogCount int
-    SELECT @LogCount = COUNT(Step) FROM GameSessionLog WHERE GameID = @GameID
-    INSERT GameSessionLog(GameID, Step, [Row], [Column], Value) VALUES(@GameID, @LogCount + 1, @Row, @Column, IIF(@Player = @FirstPlayer, 'X', 'O'))
+    SELECT @LogCount = COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
+    INSERT Impl.GameSessionLog(GameID, Step, [Row], [Column], Value) VALUES(@GameID, @LogCount + 1, @Row, @Column, IIF(@Player = @FirstPlayer, 'X', 'O'))
 GO
 
-IF OBJECT_ID (N'GetRowValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetRowValue
+IF OBJECT_ID (N'Impl.GetRowValue', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.GetRowValue
 GO
 
-CREATE FUNCTION GetRowValue (@GameID varchar(100)/*uniqueidentifier*/, @Row int)
+CREATE FUNCTION Impl.GetRowValue (@GameID varchar(100), @Row int)
 RETURNS char(3)
 AS
 BEGIN
-    RETURN dbo.GetCellValue(@GameID, @Row, 1) + dbo.GetCellValue(@GameID, @Row, 2) + dbo.GetCellValue(@GameID, @Row, 3)
+    RETURN Impl.GetCellValue(@GameID, @Row, 1) + Impl.GetCellValue(@GameID, @Row, 2) + Impl.GetCellValue(@GameID, @Row, 3)
 END
 GO
 
-IF OBJECT_ID (N'GetColumnValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetColumnValue
+IF OBJECT_ID (N'Impl.GetColumnValue', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.GetColumnValue
 GO
 
-CREATE FUNCTION GetColumnValue (@GameID varchar(100)/*uniqueidentifier*/, @Column int)
+CREATE FUNCTION Impl.GetColumnValue (@GameID varchar(100), @Column int)
 RETURNS char(3)
 AS
 BEGIN
-    RETURN dbo.GetCellValue(@GameID, 1, @Column) + dbo.GetCellValue(@GameID, 2, @Column) + dbo.GetCellValue(@GameID, 3, @Column)
+    RETURN Impl.GetCellValue(@GameID, 1, @Column) + Impl.GetCellValue(@GameID, 2, @Column) + Impl.GetCellValue(@GameID, 3, @Column)
 END
 GO
 
-IF OBJECT_ID (N'GetDirectDiagonalValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetDirectDiagonalValue
+IF OBJECT_ID (N'Impl.GetDirectDiagonalValue', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.GetDirectDiagonalValue
 GO
 
-CREATE FUNCTION GetDirectDiagonalValue (@GameID varchar(100)/*uniqueidentifier*/)
+CREATE FUNCTION Impl.GetDirectDiagonalValue (@GameID varchar(100))
 RETURNS char(3)
 AS
 BEGIN
-    RETURN dbo.GetCellValue(@GameID, 1, 1) + dbo.GetCellValue(@GameID, 2, 2) + dbo.GetCellValue(@GameID, 3, 3)
+    RETURN Impl.GetCellValue(@GameID, 1, 1) + Impl.GetCellValue(@GameID, 2, 2) + Impl.GetCellValue(@GameID, 3, 3)
 END
 GO
 
-IF OBJECT_ID (N'GetInverseDiagonalValue', N'FN') IS NOT NULL
-    DROP FUNCTION GetInverseDiagonalValue
+IF OBJECT_ID (N'Impl.GetInverseDiagonalValue', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.GetInverseDiagonalValue
 GO
 
-CREATE FUNCTION GetInverseDiagonalValue (@GameID varchar(100)/*uniqueidentifier*/)
+CREATE FUNCTION Impl.GetInverseDiagonalValue (@GameID varchar(100))
 RETURNS char(3)
 AS
 BEGIN
-    RETURN dbo.GetCellValue(@GameID, 1, 3) + dbo.GetCellValue(@GameID, 2, 2) + dbo.GetCellValue(@GameID, 3, 1)
+    RETURN Impl.GetCellValue(@GameID, 1, 3) + Impl.GetCellValue(@GameID, 2, 2) + Impl.GetCellValue(@GameID, 3, 1)
 END
 GO
 
-IF OBJECT_ID(N'ProcessUserStep', N'P') IS NOT NULL
-    DROP PROCEDURE ProcessUserStep
+IF OBJECT_ID(N'Impl.ProcessUserStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.ProcessUserStep
 GO
 
-CREATE PROCEDURE ProcessUserStep
-    @GameID varchar(100)/*uniqueidentifier*/,
+CREATE PROCEDURE Impl.ProcessUserStep
+    @GameID varchar(100),
     @Row int,
     @Column int
 AS
     SET NOCOUNT ON
     DECLARE @CellValue char(1)
-    SELECT @CellValue = Value FROM GameSessionLog WHERE (GameId = @GameID) and ([Row] = @Row) and ([Column] = @Column)
+    SELECT @CellValue = Value FROM Impl.GameSessionLog WHERE (GameId = @GameID) AND ([Row] = @Row) AND ([Column] = @Column)
     IF (@CellValue IS NOT NULL)
     BEGIN
         RAISERROR (N'Bad cell', 16, 1)
         RETURN
     END
-    EXECUTE MakeStep @GameID, @Row, @Column, 'U'
+    EXECUTE Impl.MakeStep @GameID, @Row, @Column, 'U'
 GO
 
-IF OBJECT_ID(N'ProcessCompStep', N'P') IS NOT NULL
-    DROP PROCEDURE ProcessCompStep
+IF OBJECT_ID(N'Impl.ProcessCompStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.ProcessCompStep
 GO
 
-CREATE PROCEDURE ProcessCompStep @GameID varchar(100)/*uniqueidentifier*/
+CREATE PROCEDURE Impl.ProcessCompStep @GameID varchar(100)
 AS
     SET NOCOUNT ON
     DECLARE @Row int
     DECLARE @Column int;
-    WITH Board_CTE ([Row], [Column])
+    WITH Board ([Row], [Column])
     AS
     (
         SELECT 1, 1 UNION ALL SELECT 1, 2 UNION ALL SELECT 1, 3
@@ -154,107 +167,102 @@ AS
         UNION ALL
         SELECT 3, 1 UNION ALL SELECT 3, 2 UNION ALL SELECT 3, 3
     )
-    SELECT TOP 1 @Row = Board.[Row], @Column = Board.[Column] FROM Board_CTE AS Board LEFT OUTER JOIN GameSessionLog GameLog
-                                                              ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
-                                                              WHERE GameLog.Value IS NULL
-    /* TODO (std_string) : probably check on search success */
-    EXECUTE MakeStep @GameID, @Row, @Column, 'C'
+    SELECT TOP 1 @Row = Board.[Row], @Column = Board.[Column]
+    FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
+    WHERE GameLog.Value IS NULL
+    EXECUTE Impl.MakeStep @GameID, @Row, @Column, 'C'
 GO
 
 /* API */
-
-IF OBJECT_ID(N'StartGame', N'P') IS NOT NULL
-    DROP PROCEDURE StartGame
+IF OBJECT_ID(N'dbo.StartGame', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.StartGame
 GO
 
-CREATE PROCEDURE StartGame
-    @GameID varchar(100)/*uniqueidentifier*/,
+CREATE PROCEDURE dbo.StartGame
+    @GameID varchar(100),
     @IsUserFirst bit
 AS
     SET NOCOUNT ON
-    /*DECLARE @GameID uniqueidentifier
-    SET @GameID = NEWID()*/
-    INSERT GameSession(GameID, FirstPlayer/*, Finished*/) VALUES(@GameID, IIF(@IsUserFirst = 1, 'U', 'C')/*, 0*/)
+    INSERT Impl.GameSession(GameID, FirstPlayer) VALUES(@GameID, IIF(@IsUserFirst = 1, 'U', 'C'))
     IF (@IsUserFirst <> 1)
-        INSERT GameSessionLog(GameID, Step, [Row], [Column], Value) VALUES(@GameID, 1, 2, 2, 'X')
-    /*SELECT @GameID AS GameID*/
+        INSERT Impl.GameSessionLog(GameID, Step, [Row], [Column], Value) VALUES(@GameID, 1, 2, 2, 'X')
 GO
 
-IF OBJECT_ID(N'FinishGame', N'P') IS NOT NULL
-    DROP PROCEDURE FinishGame
+IF OBJECT_ID(N'dbo.FinishGame', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.FinishGame
 GO
 
-CREATE PROCEDURE FinishGame @GameID varchar(100)/*uniqueidentifier*/
+CREATE PROCEDURE dbo.FinishGame @GameID varchar(100)
 AS
     SET NOCOUNT ON
-    DELETE FROM GameSession WHERE GameID = @GameID
+    DELETE FROM Impl.GameSession WHERE GameID = @GameID
 GO
 
-IF OBJECT_ID(N'GetGameLog', N'P') IS NOT NULL
-    DROP PROCEDURE GetGameLog
+IF OBJECT_ID(N'dbo.GetGameLog', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.GetGameLog
 GO
 
-CREATE PROCEDURE GetGameLog @GameID varchar(100)/*uniqueidentifier*/
+CREATE PROCEDURE dbo.GetGameLog @GameID varchar(100)
 AS
     SET NOCOUNT ON
-    SELECT GameID, Step, [Row], [Column], Value FROM GameSessionLog WHERE GameID = @GameID ORDER BY Step ASC
+    SELECT GameID, Step, [Row], [Column], Value FROM Impl.GameSessionLog WHERE GameID = @GameID ORDER BY Step ASC
 GO
 
-IF OBJECT_ID(N'ShowBoard', N'P') IS NOT NULL
-    DROP PROCEDURE ShowBoard
+IF OBJECT_ID(N'dbo.ShowBoard', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.ShowBoard
 GO
 
-CREATE PROCEDURE ShowBoard @GameID varchar(100)/*uniqueidentifier*/
+CREATE PROCEDURE dbo.ShowBoard @GameID varchar(100)
 AS
     SET NOCOUNT ON
     PRINT REPLICATE(N'=', 7)
-    PRINT N'|' + dbo.GetCellValue(@GameID, 1, 1) + N'|' + dbo.GetCellValue(@GameID, 1, 2) + N'|' + dbo.GetCellValue(@GameID, 1, 3) + N'|'
+    PRINT N'|' + Impl.GetCellValue(@GameID, 1, 1) + N'|' + Impl.GetCellValue(@GameID, 1, 2) + N'|' + Impl.GetCellValue(@GameID, 1, 3) + N'|'
     PRINT REPLICATE(N'=', 7)
-    PRINT N'|' + dbo.GetCellValue(@GameID, 2, 1) + N'|' + dbo.GetCellValue(@GameID, 2, 2) + N'|' + dbo.GetCellValue(@GameID, 2, 3) + N'|'
+    PRINT N'|' + Impl.GetCellValue(@GameID, 2, 1) + N'|' + Impl.GetCellValue(@GameID, 2, 2) + N'|' + Impl.GetCellValue(@GameID, 2, 3) + N'|'
     PRINT REPLICATE(N'=', 7)
-    PRINT N'|' + dbo.GetCellValue(@GameID, 3, 1) + N'|' + dbo.GetCellValue(@GameID, 3, 2) + N'|' + dbo.GetCellValue(@GameID, 3, 3) + N'|'
+    PRINT N'|' + Impl.GetCellValue(@GameID, 3, 1) + N'|' + Impl.GetCellValue(@GameID, 3, 2) + N'|' + Impl.GetCellValue(@GameID, 3, 3) + N'|'
     PRINT REPLICATE(N'=', 7)
 GO
 
-IF OBJECT_ID (N'GetGameWinner', N'FN') IS NOT NULL
-    DROP FUNCTION GetGameWinner
+IF OBJECT_ID (N'dbo.GetGameWinner', N'FN') IS NOT NULL
+    DROP FUNCTION dbo.GetGameWinner
 GO
 
-CREATE FUNCTION GetGameWinner (@GameID varchar(100)/*uniqueidentifier*/)
+CREATE FUNCTION dbo.GetGameWinner (@GameID varchar(100))
 RETURNS varchar(10)
 AS
 BEGIN
     DECLARE @Row1 CHAR(3), @Row2 CHAR(3), @Row3 CHAR(3)
     DECLARE @Column1 CHAR(3), @Column2 CHAR(3), @Column3 CHAR(3)
     DECLARE @DirectDiagonal CHAR(3), @InverseDiagonal CHAR(3)
-    SET @Row1 = dbo.GetRowValue(@GameID, 1)
-    SET @Row2 = dbo.GetRowValue(@GameID, 2)
-    SET @Row3 = dbo.GetRowValue(@GameID, 3)
-    SET @Column1 = dbo.GetColumnValue(@GameID, 1)
-    SET @Column2 = dbo.GetColumnValue(@GameID, 2)
-    SET @Column3 = dbo.GetColumnValue(@GameID, 3)
-    SET @DirectDiagonal = dbo.GetDirectDiagonalValue(@GameID)
-    SET @InverseDiagonal = dbo.GetInverseDiagonalValue(@GameID)
+    SET @Row1 = Impl.GetRowValue(@GameID, 1)
+    SET @Row2 = Impl.GetRowValue(@GameID, 2)
+    SET @Row3 = Impl.GetRowValue(@GameID, 3)
+    SET @Column1 = Impl.GetColumnValue(@GameID, 1)
+    SET @Column2 = Impl.GetColumnValue(@GameID, 2)
+    SET @Column3 = Impl.GetColumnValue(@GameID, 3)
+    SET @DirectDiagonal = Impl.GetDirectDiagonalValue(@GameID)
+    SET @InverseDiagonal = Impl.GetInverseDiagonalValue(@GameID)
     DECLARE @FirstPlayer char(1)
-    SELECT @FirstPlayer = FirstPlayer FROM GameSession WHERE GameID = @GameID
+    SELECT @FirstPlayer = FirstPlayer FROM Impl.GameSession WHERE GameID = @GameID
     IF (@Row1 = N'XXX' OR @Row2 = N'XXX' OR @Row3 = N'XXX' OR @Column1 = N'XXX' OR @Column2 = N'XXX' OR @Column3 = N'XXX' OR @DirectDiagonal = N'XXX' OR @InverseDiagonal = N'XXX')
         RETURN IIF(@FirstPlayer = 'U', 'User', 'Comp')
     IF (@Row1 = N'OOO' OR @Row2 = N'OOO' OR @Row3 = N'OOO' OR @Column1 = N'OOO' OR @Column2 = N'OOO' OR @Column3 = N'OOO' OR @DirectDiagonal = N'OOO' OR @InverseDiagonal = N'OOO')
         RETURN IIF(@FirstPlayer = 'U', 'Comp', 'User')
     DECLARE @LogCount int
-    SELECT @LogCount = COUNT(Step) FROM GameSessionLog WHERE GameID = @GameID
+    SELECT @LogCount = COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
     IF (@LogCount = 9)
         RETURN 'Draw'
     RETURN NULL
 END
 GO
 
-IF OBJECT_ID('ProcessStep', 'P') IS NOT NULL
-    DROP PROCEDURE ProcessStep
+IF OBJECT_ID('dbo.ProcessStep', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.ProcessStep
 GO
 
-CREATE PROCEDURE ProcessStep
-    @GameID varchar(100)/*uniqueidentifier*/,
+CREATE PROCEDURE dbo.ProcessStep
+    @GameID varchar(100),
     @UserStepRow int,
     @UserStepColumn int
 AS
@@ -263,13 +271,13 @@ AS
     SET @Winner = dbo.GetGameWinner(@GameID)
     IF (@Winner IS NOT NULL)
     BEGIN
-        EXECUTE ShowBoard @GameID
-        EXECUTE GetGameLog @GameID
+        EXECUTE dbo.ShowBoard @GameID
+        EXECUTE dbo.GetGameLog @GameID
         PRINT N'GAME IS FINISHED. WINNER = ' + @Winner
         RETURN
     END
     BEGIN TRY
-        EXECUTE ProcessUserStep @GameID, @UserStepRow, @UserStepColumn
+        EXECUTE Impl.ProcessUserStep @GameID, @UserStepRow, @UserStepColumn
     END TRY
     BEGIN CATCH
         RETURN
@@ -277,14 +285,14 @@ AS
     SET @Winner = dbo.GetGameWinner(@GameID)
     IF (@Winner IS NOT NULL)
     BEGIN
-        EXECUTE ShowBoard @GameID
-        EXECUTE GetGameLog @GameID
+        EXECUTE dbo.ShowBoard @GameID
+        EXECUTE dbo.GetGameLog @GameID
         PRINT N'GAME IS FINISHED. WINNER = ' + @Winner
         RETURN
     END
-    EXECUTE ProcessCompStep @GameID
-    EXECUTE ShowBoard @GameID
-    EXECUTE GetGameLog @GameID
+    EXECUTE Impl.ProcessCompStep @GameID
+    EXECUTE dbo.ShowBoard @GameID
+    EXECUTE dbo.GetGameLog @GameID
     SET @Winner = dbo.GetGameWinner(@GameID)
     IF (@Winner IS NOT NULL)
         PRINT N'GAME IS FINISHED. WINNER = ' + @Winner

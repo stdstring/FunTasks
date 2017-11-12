@@ -44,7 +44,7 @@ Step int NOT NULL CHECK(Step >= 1 AND Step <= 9),
 [Column] int NOT NULL CHECK([Column] >= 1 AND [Column] <= 3),
 Value char(1) NOT NULL CHECK (Value = 'X' OR Value = 'O'),
 CONSTRAINT GameSessionLog_PK PRIMARY KEY (GameID, Step),
-CONSTRAINT GameSession_FK FOREIGN KEY (GameID) REFERENCES GameSession(GameID) ON UPDATE CASCADE ON DELETE CASCADE
+CONSTRAINT GameSession_FK FOREIGN KEY (GameID) REFERENCES Impl.GameSession(GameID) ON UPDATE CASCADE ON DELETE CASCADE
 )
 GO
 

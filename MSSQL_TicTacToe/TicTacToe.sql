@@ -157,20 +157,6 @@ GO
 CREATE PROCEDURE Impl.ProcessCompStep @GameID varchar(100)
 AS
     SET NOCOUNT ON
-    /*DECLARE @Row int
-    DECLARE @Column int;
-    WITH Board ([Row], [Column])
-    AS
-    (
-        SELECT 1, 1 UNION ALL SELECT 1, 2 UNION ALL SELECT 1, 3
-        UNION ALL
-        SELECT 2, 1 UNION ALL SELECT 2, 2 UNION ALL SELECT 2, 3
-        UNION ALL
-        SELECT 3, 1 UNION ALL SELECT 3, 2 UNION ALL SELECT 3, 3
-    )
-    SELECT TOP 1 @Row = Board.[Row], @Column = Board.[Column]
-    FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
-    WHERE GameLog.Value IS NULL*/
     DECLARE @NextCompStepRow int
     DECLARE @NextCompStepColumn int
     DECLARE @NextCompStepGenerator varchar(100)

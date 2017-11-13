@@ -22,13 +22,13 @@ IF OBJECT_ID(N'Impl.GameSession', N'U') IS NOT NULL
     DROP TABLE Impl.GameSession
 GO
 
-/* 'U' = User, 'C' = Comp */
 CREATE TABLE Impl.GameSession
 (
 GameID varchar(100) NOT NULL PRIMARY KEY,
-FirstPlayer char(1) NOT NULL CHECK (FirstPlayer = 'U' OR FirstPlayer = 'C')/*,
-Finished bit NOT NULL DEFAULT(0),
-Winner char(1) NULL CHECK (FirstPlayer = 'U' or FirstPlayer = 'C')*/
+/* 'U' = User, 'C' = Comp */
+FirstPlayer char(1) NOT NULL CHECK (FirstPlayer = 'U' OR FirstPlayer = 'C'),
+/* 'U' = User, 'C' = Comp, 'D' = Draw, NULL = game is not finished */
+GameResult char(1) NULL CHECK (GameResult = 'U' OR GameResult = 'C' OR GameResult = 'D')
 )
 GO
 
@@ -173,6 +173,41 @@ AS
     EXECUTE Impl.MakeStep @GameID, @Row, @Column, 'C'
 GO
 
+IF OBJECT_ID (N'Impl.CalculateGameResult', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.CalculateGameResult
+GO
+
+CREATE PROCEDURE Impl.CalculateGameResult @GameID varchar(100)
+AS
+    IF EXISTS(SELECT GameResult FROM Impl.GameSession WHERE GameID = @GameID AND GameResult IS NOT NULL)
+        RETURN
+    DECLARE @Row1 CHAR(3), @Row2 CHAR(3), @Row3 CHAR(3)
+    DECLARE @Column1 CHAR(3), @Column2 CHAR(3), @Column3 CHAR(3)
+    DECLARE @DirectDiagonal CHAR(3), @InverseDiagonal CHAR(3)
+    SET @Row1 = Impl.GetRowValue(@GameID, 1)
+    SET @Row2 = Impl.GetRowValue(@GameID, 2)
+    SET @Row3 = Impl.GetRowValue(@GameID, 3)
+    SET @Column1 = Impl.GetColumnValue(@GameID, 1)
+    SET @Column2 = Impl.GetColumnValue(@GameID, 2)
+    SET @Column3 = Impl.GetColumnValue(@GameID, 3)
+    SET @DirectDiagonal = Impl.GetDirectDiagonalValue(@GameID)
+    SET @InverseDiagonal = Impl.GetInverseDiagonalValue(@GameID)
+    IF (@Row1 = N'XXX' OR @Row2 = N'XXX' OR @Row3 = N'XXX' OR @Column1 = N'XXX' OR @Column2 = N'XXX' OR @Column3 = N'XXX' OR @DirectDiagonal = N'XXX' OR @InverseDiagonal = N'XXX')
+    BEGIN
+        UPDATE Impl.GameSession SET GameResult = FirstPlayer WHERE GameID = @GameID
+        RETURN
+    END
+    IF (@Row1 = N'OOO' OR @Row2 = N'OOO' OR @Row3 = N'OOO' OR @Column1 = N'OOO' OR @Column2 = N'OOO' OR @Column3 = N'OOO' OR @DirectDiagonal = N'OOO' OR @InverseDiagonal = N'OOO')
+    BEGIN
+        UPDATE Impl.GameSession SET GameResult = IIF(FirstPlayer = 'U', 'C', 'U') WHERE GameID = @GameID
+        RETURN
+    END
+    DECLARE @LogCount int
+    SELECT @LogCount = COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
+    IF (@LogCount = 9)
+        UPDATE Impl.GameSession SET GameResult = 'D' WHERE GameID = @GameID
+GO
+
 /* API */
 IF OBJECT_ID(N'dbo.StartGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.StartGame
@@ -252,28 +287,15 @@ CREATE FUNCTION dbo.GetGameResult (@GameID varchar(100))
 RETURNS varchar(20)
 AS
 BEGIN
-    DECLARE @Row1 CHAR(3), @Row2 CHAR(3), @Row3 CHAR(3)
-    DECLARE @Column1 CHAR(3), @Column2 CHAR(3), @Column3 CHAR(3)
-    DECLARE @DirectDiagonal CHAR(3), @InverseDiagonal CHAR(3)
-    SET @Row1 = Impl.GetRowValue(@GameID, 1)
-    SET @Row2 = Impl.GetRowValue(@GameID, 2)
-    SET @Row3 = Impl.GetRowValue(@GameID, 3)
-    SET @Column1 = Impl.GetColumnValue(@GameID, 1)
-    SET @Column2 = Impl.GetColumnValue(@GameID, 2)
-    SET @Column3 = Impl.GetColumnValue(@GameID, 3)
-    SET @DirectDiagonal = Impl.GetDirectDiagonalValue(@GameID)
-    SET @InverseDiagonal = Impl.GetInverseDiagonalValue(@GameID)
-    DECLARE @FirstPlayer char(1)
-    SELECT @FirstPlayer = FirstPlayer FROM Impl.GameSession WHERE GameID = @GameID
-    IF (@Row1 = N'XXX' OR @Row2 = N'XXX' OR @Row3 = N'XXX' OR @Column1 = N'XXX' OR @Column2 = N'XXX' OR @Column3 = N'XXX' OR @DirectDiagonal = N'XXX' OR @InverseDiagonal = N'XXX')
-        RETURN IIF(@FirstPlayer = 'U', 'User', 'Comp') + ' is winner'
-    IF (@Row1 = N'OOO' OR @Row2 = N'OOO' OR @Row3 = N'OOO' OR @Column1 = N'OOO' OR @Column2 = N'OOO' OR @Column3 = N'OOO' OR @DirectDiagonal = N'OOO' OR @InverseDiagonal = N'OOO')
-        RETURN IIF(@FirstPlayer = 'U', 'Comp', 'User') + ' is winner'
-    DECLARE @LogCount int
-    SELECT @LogCount = COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
-    IF (@LogCount = 9)
-        RETURN 'Result is draw'
-    RETURN NULL
+    DECLARE @GameResult char(1)
+    SELECT @GameResult = GameResult FROM Impl.GameSession WHERE GameID = @GameID
+    DECLARE @Result varchar(20)
+    RETURN CASE @GameResult
+               WHEN 'U' THEN 'User is winner'
+               WHEN 'C' THEN 'Computer is winner'
+               WHEN 'D' THEN 'Result is draw'
+               ELSE NULL
+           END
 END
 GO
 
@@ -288,6 +310,7 @@ CREATE PROCEDURE dbo.ProcessStep
 AS
     SET NOCOUNT ON
     DECLARE @GameResult varchar(20)
+    EXECUTE Impl.CalculateGameResult @GameID
     SET @GameResult = dbo.GetGameResult(@GameID)
     IF (@GameResult IS NOT NULL)
     BEGIN
@@ -307,6 +330,7 @@ AS
         RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
         RETURN
     END CATCH
+    EXECUTE Impl.CalculateGameResult @GameID
     SET @GameResult = dbo.GetGameResult(@GameID)
     IF (@GameResult IS NOT NULL)
     BEGIN
@@ -318,6 +342,7 @@ AS
     EXECUTE Impl.ProcessCompStep @GameID
     EXECUTE dbo.ShowBoard @GameID
     EXECUTE dbo.ShowGameLog @GameID
+    EXECUTE Impl.CalculateGameResult @GameID
     SET @GameResult = dbo.GetGameResult(@GameID)
     IF (@GameResult IS NOT NULL)
         PRINT N'Game is finished. ' + @GameResult

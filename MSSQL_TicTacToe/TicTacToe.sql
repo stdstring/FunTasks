@@ -27,6 +27,7 @@ CREATE TABLE Impl.GameSession
 GameID varchar(100) NOT NULL PRIMARY KEY,
 /* 'U' = User, 'C' = Comp */
 FirstPlayer char(1) NOT NULL CHECK (FirstPlayer = 'U' OR FirstPlayer = 'C'),
+NextCompStepGenerator varchar(100) NOT NULL,
 /* 'U' = User, 'C' = Comp, 'D' = Draw, NULL = game is not finished */
 GameResult char(1) NULL CHECK (GameResult = 'U' OR GameResult = 'C' OR GameResult = 'D')
 )
@@ -156,7 +157,7 @@ GO
 CREATE PROCEDURE Impl.ProcessCompStep @GameID varchar(100)
 AS
     SET NOCOUNT ON
-    DECLARE @Row int
+    /*DECLARE @Row int
     DECLARE @Column int;
     WITH Board ([Row], [Column])
     AS
@@ -169,8 +170,13 @@ AS
     )
     SELECT TOP 1 @Row = Board.[Row], @Column = Board.[Column]
     FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
-    WHERE GameLog.Value IS NULL
-    EXECUTE Impl.MakeStep @GameID, @Row, @Column, 'C'
+    WHERE GameLog.Value IS NULL*/
+    DECLARE @NextCompStepRow int
+    DECLARE @NextCompStepColumn int
+    DECLARE @NextCompStepGenerator varchar(100)
+    SELECT @NextCompStepGenerator = NextCompStepGenerator FROM Impl.GameSession WHERE GameID = @GameID
+    EXECUTE @NextCompStepGenerator @GameID, @NextCompStepRow OUTPUT, @NextCompStepColumn OUTPUT
+    EXECUTE Impl.MakeStep @GameID, @NextCompStepRow, @NextCompStepColumn, 'C'
 GO
 
 IF OBJECT_ID (N'Impl.CalculateGameResult', N'P') IS NOT NULL
@@ -208,6 +214,32 @@ AS
         UPDATE Impl.GameSession SET GameResult = 'D' WHERE GameID = @GameID
 GO
 
+IF OBJECT_ID(N'Impl.SimpleGenerateCompNextStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.SimpleGenerateCompNextStep
+GO
+
+CREATE PROCEDURE Impl.SimpleGenerateCompNextStep
+    @GameID varchar(100),
+    @NextStepRow int OUTPUT,
+    @NextStepColumn int OUTPUT
+AS
+    SET NOCOUNT ON
+    DECLARE @Row int
+    DECLARE @Column int;
+    WITH Board ([Row], [Column])
+    AS
+    (
+        SELECT 1, 1 UNION ALL SELECT 1, 2 UNION ALL SELECT 1, 3
+        UNION ALL
+        SELECT 2, 1 UNION ALL SELECT 2, 2 UNION ALL SELECT 2, 3
+        UNION ALL
+        SELECT 3, 1 UNION ALL SELECT 3, 2 UNION ALL SELECT 3, 3
+    )
+    SELECT TOP 1 @NextStepRow = Board.[Row], @NextStepColumn = Board.[Column]
+    FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
+    WHERE GameLog.Value IS NULL
+GO
+
 /* API */
 IF OBJECT_ID(N'dbo.StartGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.StartGame
@@ -215,12 +247,25 @@ GO
 
 CREATE PROCEDURE dbo.StartGame
     @GameID varchar(100),
+    @IsUserFirst bit,
+    @NextCompStepGenerator varchar(100)
+AS
+    SET NOCOUNT ON
+    INSERT Impl.GameSession(GameID, FirstPlayer, NextCompStepGenerator) VALUES(@GameID, IIF(@IsUserFirst = 1, 'U', 'C'), @NextCompStepGenerator)
+    IF (@IsUserFirst <> 1)
+        INSERT Impl.GameSessionLog(GameID, Step, [Row], [Column], Value) VALUES(@GameID, 1, 2, 2, 'X')
+GO
+
+IF OBJECT_ID(N'dbo.StartSimpleCompGame', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.StartSimpleCompGame
+GO
+
+CREATE PROCEDURE dbo.StartSimpleCompGame
+    @GameID varchar(100),
     @IsUserFirst bit
 AS
     SET NOCOUNT ON
-    INSERT Impl.GameSession(GameID, FirstPlayer) VALUES(@GameID, IIF(@IsUserFirst = 1, 'U', 'C'))
-    IF (@IsUserFirst <> 1)
-        INSERT Impl.GameSessionLog(GameID, Step, [Row], [Column], Value) VALUES(@GameID, 1, 2, 2, 'X')
+    EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'Impl.SimpleGenerateCompNextStep'
 GO
 
 IF OBJECT_ID(N'dbo.FinishGame', N'P') IS NOT NULL
@@ -349,7 +394,7 @@ AS
 GO
 
 /*
-EXECUTE StartGame N'AA', 1;
+EXECUTE StartSimpleCompGame N'AA', 1;
 EXECUTE ShowBoard N'AA';
 EXECUTE ProcessStep N'AA', 2, 2;
 EXECUTE ProcessStep N'AA', 1, 1;
@@ -359,7 +404,7 @@ EXECUTE FinishGame N'AA';
 */
 
 /*
-EXECUTE StartGame N'BB', 0;
+EXECUTE StartSimpleCompGame N'BB', 0;
 EXECUTE ShowBoard N'BB';
 EXECUTE ProcessStep N'BB', 1, 2;
 EXECUTE ProcessStep N'BB', 1, 3;
@@ -368,7 +413,7 @@ EXECUTE FinishGame N'BB';
 */
 
 /*
-EXECUTE StartGame N'CC', 0;
+EXECUTE StartSimpleCompGame N'CC', 0;
 EXECUTE ShowBoard N'CC';
 EXECUTE ProcessStep N'CC', 1, 2;
 EXECUTE ProcessStep N'CC', 3, 3;

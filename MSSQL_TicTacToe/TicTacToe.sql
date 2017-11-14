@@ -379,6 +379,16 @@ AS
         PRINT N'Game is finished. ' + @GameResult
 GO
 
+IF OBJECT_ID(N'dbo.Cleanup', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.Cleanup
+GO
+
+CREATE PROCEDURE dbo.Cleanup
+AS
+    SET NOCOUNT ON
+    DELETE FROM Impl.GameSession
+GO
+
 /*
 EXECUTE StartSimpleCompGame N'AA', 1;
 EXECUTE ShowBoard N'AA';

@@ -211,7 +211,7 @@ CREATE PROCEDURE Impl.SimpleGenerateCompNextStep
 AS
     SET NOCOUNT ON
     DECLARE @Row int
-    DECLARE @Column int;
+    DECLARE @Column int; /* ";" here only for CTE */
     WITH Board ([Row], [Column])
     AS
     (
@@ -224,6 +224,39 @@ AS
     SELECT TOP 1 @NextStepRow = Board.[Row], @NextStepColumn = Board.[Column]
     FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
     WHERE GameLog.Value IS NULL
+GO
+
+IF OBJECT_ID(N'Impl.RandomGenerateCompNextStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.RandomGenerateCompNextStep
+GO
+
+CREATE PROCEDURE Impl.RandomGenerateCompNextStep
+    @GameID varchar(100),
+    @NextStepRow int OUTPUT,
+    @NextStepColumn int OUTPUT
+AS
+    SET NOCOUNT ON
+    DECLARE @FreeCellsCount int
+    SELECT @FreeCellsCount = 9 - COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
+    DECLARE @SelectedCell int
+    SET @SelectedCell =  1 + FLOOR(@FreeCellsCount * RAND()); /* ";" here only for CTE */
+    WITH Board ([Row], [Column])
+    AS
+    (
+        SELECT 1, 1 UNION ALL SELECT 1, 2 UNION ALL SELECT 1, 3
+        UNION ALL
+        SELECT 2, 1 UNION ALL SELECT 2, 2 UNION ALL SELECT 2, 3
+        UNION ALL
+        SELECT 3, 1 UNION ALL SELECT 3, 2 UNION ALL SELECT 3, 3
+    ),
+    Data (CellNumber, [Row], [Column])
+    AS
+    (
+        SELECT ROW_NUMBER() OVER(ORDER BY Board.[Row] ASC, Board.[Column] ASC), Board.[Row], Board.[Column]
+        FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
+        WHERE GameLog.Value IS NULL
+    )
+    SELECT @NextStepRow = [Row], @NextStepColumn = [Column] FROM Data WHERE CellNumber = @SelectedCell
 GO
 
 /* API */
@@ -253,6 +286,19 @@ AS
     SET NOCOUNT ON
     EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'Impl.SimpleGenerateCompNextStep'
 GO
+
+IF OBJECT_ID(N'dbo.StartRandomCompGame', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.StartRandomCompGame
+GO
+
+CREATE PROCEDURE dbo.StartRandomCompGame
+    @GameID varchar(100),
+    @IsUserFirst bit
+AS
+    SET NOCOUNT ON
+    EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'Impl.RandomGenerateCompNextStep'
+GO
+
 
 IF OBJECT_ID(N'dbo.FinishGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.FinishGame
@@ -416,4 +462,17 @@ EXECUTE ProcessStep N'CC', 3, 3;
 EXECUTE ProcessStep N'CC', 3, 1;
 EXECUTE ProcessStep N'CC', 2, 3;
 EXECUTE FinishGame N'CC';
+*/
+
+/*
+EXECUTE StartRandomCompGame N'AA', 1;
+EXECUTE ShowBoard N'AA';
+EXECUTE ProcessStep N'AA', 2, 2;
+EXECUTE ProcessStep N'AA', 1, 1;
+EXECUTE ProcessStep N'AA', 3, 3;
+EXECUTE FinishGame N'AA';
+*/
+
+/*
+EXECUTE dbo.Cleanup
 */

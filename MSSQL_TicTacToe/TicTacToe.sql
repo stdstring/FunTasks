@@ -173,9 +173,9 @@ CREATE PROCEDURE Impl.CalculateGameResult @GameID varchar(100)
 AS
     IF EXISTS(SELECT GameResult FROM Impl.GameSession WHERE GameID = @GameID AND GameResult IS NOT NULL)
         RETURN
-    DECLARE @Row1 CHAR(3), @Row2 CHAR(3), @Row3 CHAR(3)
-    DECLARE @Column1 CHAR(3), @Column2 CHAR(3), @Column3 CHAR(3)
-    DECLARE @DirectDiagonal CHAR(3), @InverseDiagonal CHAR(3)
+    DECLARE @Row1 char(3), @Row2 char(3), @Row3 char(3)
+    DECLARE @Column1 char(3), @Column2 char(3), @Column3 char(3)
+    DECLARE @DirectDiagonal char(3), @InverseDiagonal char(3)
     SET @Row1 = Impl.GetRowValue(@GameID, 1)
     SET @Row2 = Impl.GetRowValue(@GameID, 2)
     SET @Row3 = Impl.GetRowValue(@GameID, 3)
@@ -200,46 +200,16 @@ AS
         UPDATE Impl.GameSession SET GameResult = 'D' WHERE GameID = @GameID
 GO
 
-IF OBJECT_ID(N'Impl.SimpleGenerateCompNextStep', N'P') IS NOT NULL
-    DROP PROCEDURE Impl.SimpleGenerateCompNextStep
+IF OBJECT_ID (N'Impl.FindFreeCell', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.FindFreeCell
 GO
 
-CREATE PROCEDURE Impl.SimpleGenerateCompNextStep
-    @GameID varchar(100),
-    @NextStepRow int OUTPUT,
-    @NextStepColumn int OUTPUT
+CREATE FUNCTION Impl.FindFreeCell (@GameID varchar(100), @CellNumber int)
+RETURNS int
 AS
-    SET NOCOUNT ON
+BEGIN
     DECLARE @Row int
     DECLARE @Column int; /* ";" here only for CTE */
-    WITH Board ([Row], [Column])
-    AS
-    (
-        SELECT 1, 1 UNION ALL SELECT 1, 2 UNION ALL SELECT 1, 3
-        UNION ALL
-        SELECT 2, 1 UNION ALL SELECT 2, 2 UNION ALL SELECT 2, 3
-        UNION ALL
-        SELECT 3, 1 UNION ALL SELECT 3, 2 UNION ALL SELECT 3, 3
-    )
-    SELECT TOP 1 @NextStepRow = Board.[Row], @NextStepColumn = Board.[Column]
-    FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
-    WHERE GameLog.Value IS NULL
-GO
-
-IF OBJECT_ID(N'Impl.RandomGenerateCompNextStep', N'P') IS NOT NULL
-    DROP PROCEDURE Impl.RandomGenerateCompNextStep
-GO
-
-CREATE PROCEDURE Impl.RandomGenerateCompNextStep
-    @GameID varchar(100),
-    @NextStepRow int OUTPUT,
-    @NextStepColumn int OUTPUT
-AS
-    SET NOCOUNT ON
-    DECLARE @FreeCellsCount int
-    SELECT @FreeCellsCount = 9 - COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
-    DECLARE @SelectedCell int
-    SET @SelectedCell =  1 + FLOOR(@FreeCellsCount * RAND()); /* ";" here only for CTE */
     WITH Board ([Row], [Column])
     AS
     (
@@ -256,8 +226,169 @@ AS
         FROM Board LEFT OUTER JOIN Impl.GameSessionLog AS GameLog ON Board.[Row] = GameLog.[Row] AND Board.[Column] = GameLog.[Column] AND GameLog.GameID = @GameID
         WHERE GameLog.Value IS NULL
     )
-    SELECT @NextStepRow = [Row], @NextStepColumn = [Column] FROM Data WHERE CellNumber = @SelectedCell
+    SELECT @Row = [Row], @Column = [Column] FROM Data WHERE CellNumber = @CellNumber
+    RETURN 10 * @Row + @Column
+END
 GO
+
+
+IF OBJECT_ID(N'Impl.SimpleGenerateCompNextStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.SimpleGenerateCompNextStep
+GO
+
+CREATE PROCEDURE Impl.SimpleGenerateCompNextStep
+    @GameID varchar(100),
+    @NextStepRow int OUTPUT,
+    @NextStepColumn int OUTPUT
+AS
+    SET NOCOUNT ON
+    DECLARE @Result int
+    SET @Result = Impl.FindFreeCell(@GameID, 1)
+    SET @NextStepRow = @Result / 10
+    SET @NextStepColumn = @Result % 10
+GO
+
+IF OBJECT_ID(N'Impl.RandomGenerateCompNextStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.RandomGenerateCompNextStep
+GO
+
+CREATE PROCEDURE Impl.RandomGenerateCompNextStep
+    @GameID varchar(100),
+    @NextStepRow int OUTPUT,
+    @NextStepColumn int OUTPUT
+AS
+    DECLARE @FreeCellsCount int
+    SELECT @FreeCellsCount = 9 - COUNT(Step) FROM Impl.GameSessionLog WHERE GameID = @GameID
+    DECLARE @SelectedCell int
+    SET @SelectedCell =  1 + FLOOR(@FreeCellsCount * RAND())
+    DECLARE @Result int
+    SET @Result = Impl.FindFreeCell(@GameID, @SelectedCell)
+    SET @NextStepRow = @Result / 10
+    SET @NextStepColumn = @Result % 10
+GO
+
+IF OBJECT_ID (N'Impl.FindMandatoryStep', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.FindMandatoryStep
+GO
+
+CREATE FUNCTION Impl.FindMandatoryStep (@GameID varchar(100), @Value char(1))
+RETURNS int
+AS
+BEGIN
+    DECLARE @Pattern1 char(3), @Pattern2 char(3), @Pattern3 char(3)
+    SET @Pattern1 = ' ' + @Value + @Value
+    SET @Pattern2 = @Value + ' ' + @Value
+    SET @Pattern3 = @Value + @Value + ' '
+    DECLARE @Result int
+    SET @Result = CASE Impl.GetRowValue(@GameID, 1) WHEN @Pattern1 THEN 11 WHEN @Pattern2 THEN 12 WHEN @Pattern3 THEN 13 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    SET @Result = CASE Impl.GetRowValue(@GameID, 2) WHEN @Pattern1 THEN 21 WHEN @Pattern2 THEN 22 WHEN @Pattern3 THEN 23 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    SET @Result = CASE Impl.GetRowValue(@GameID, 3) WHEN @Pattern1 THEN 31 WHEN @Pattern2 THEN 32 WHEN @Pattern3 THEN 33 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    SET @Result = CASE Impl.GetColumnValue(@GameID, 1) WHEN @Pattern1 THEN 11 WHEN @Pattern2 THEN 21 WHEN @Pattern3 THEN 31 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    SET @Result = CASE Impl.GetColumnValue(@GameID, 2) WHEN @Pattern1 THEN 12 WHEN @Pattern2 THEN 22 WHEN @Pattern3 THEN 32 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    SET @Result = CASE Impl.GetColumnValue(@GameID, 3) WHEN @Pattern1 THEN 13 WHEN @Pattern2 THEN 23 WHEN @Pattern3 THEN 33 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    SET @Result = CASE Impl.GetDirectDiagonalValue(@GameID) WHEN @Pattern1 THEN 11 WHEN @Pattern2 THEN 22 WHEN @Pattern3 THEN 33 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    SET @Result = CASE Impl.GetInverseDiagonalValue(@GameID) WHEN @Pattern1 THEN 13 WHEN @Pattern2 THEN 22 WHEN @Pattern3 THEN 31 ELSE NULL END
+    IF @Result IS NOT NULL
+        RETURN @RESULT
+    RETURN NULL
+END
+GO
+
+IF OBJECT_ID (N'Impl.FindOppositeCornerStep', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.FindOppositeCornerStep
+GO
+
+CREATE FUNCTION Impl.FindOppositeCornerStep (@GameID varchar(100), @Row int, @Column int)
+RETURNS int
+AS
+BEGIN
+    IF @Row = 1 AND @Column = 1
+        RETURN IIF(Impl.GetCellValue(@GameID, 3, 3) = ' ', 33, NULL)
+    IF @Row = 1 AND @Column = 3
+        RETURN IIF(Impl.GetCellValue(@GameID, 3, 1) = ' ', 31, NULL)
+    IF @Row = 3 AND @Column = 1
+        RETURN IIF(Impl.GetCellValue(@GameID, 1, 3) = ' ', 13, NULL)
+    IF @Row = 3 AND @Column = 3
+        RETURN IIF(Impl.GetCellValue(@GameID, 1, 1) = ' ', 11, NULL)
+    IF @Row = 1 AND @Column = 2
+        RETURN IIF(Impl.GetCellValue(@GameID, 3, 1) = ' ', 31, IIF(Impl.GetCellValue(@GameID, 3, 3) = ' ', 33, NULL))
+    IF @Row = 3 AND @Column = 2
+        RETURN IIF(Impl.GetCellValue(@GameID, 1, 1) = ' ', 11, IIF(Impl.GetCellValue(@GameID, 1, 3) = ' ', 13, NULL))
+    IF @Row = 2 AND @Column = 1
+        RETURN IIF(Impl.GetCellValue(@GameID, 1, 3) = ' ', 13, IIF(Impl.GetCellValue(@GameID, 3, 3) = ' ', 33, NULL))
+    IF @Row = 2 AND @Column = 3
+        RETURN IIF(Impl.GetCellValue(@GameID, 1, 1) = ' ', 13, IIF(Impl.GetCellValue(@GameID, 3, 1) = ' ', 33, NULL))
+    RETURN NULL
+END
+GO
+
+IF OBJECT_ID(N'Impl.SmartGenerateCompNextStep', N'P') IS NOT NULL
+    DROP PROCEDURE Impl.SmartGenerateCompNextStep
+GO
+
+CREATE PROCEDURE Impl.SmartGenerateCompNextStep
+    @GameID varchar(100),
+    @NextStepRow int OUTPUT,
+    @NextStepColumn int OUTPUT
+AS
+    SET NOCOUNT ON
+    DECLARE @Value char(1)
+    SET @Value = Impl.GetCellValue(@GameID, 2, 2)
+    IF (@Value IS NULL)
+    BEGIN
+        SET @NextStepRow = 2
+        SET @NextStepColumn = 2
+        RETURN
+    END
+    DECLARE @Figure char(1), @OppositeFigure char(1)
+    SELECT @Figure = IIF(FirstPlayer = 'C', 'X', 'O'), @OppositeFigure = IIF(FirstPlayer = 'U', 'X', 'O') FROM Impl.GameSession WHERE GameID = @GameID
+    DECLARE @MandatoryStep int
+    SET @MandatoryStep = Impl.FindMandatoryStep(@GameID, @Figure)
+    IF @MandatoryStep IS NOT NULL
+    BEGIN
+        SET @NextStepRow = @MandatoryStep / 10
+        SET @NextStepColumn = @MandatoryStep % 10
+        RETURN
+    END
+    SET @MandatoryStep = Impl.FindMandatoryStep(@GameID, @OppositeFigure)
+    IF @MandatoryStep IS NOT NULL
+    BEGIN
+        SET @NextStepRow = @MandatoryStep / 10
+        SET @NextStepColumn = @MandatoryStep % 10
+        RETURN
+    END
+    IF @Figure = 'X'
+    BEGIN
+        DECLARE @LastStepRow int
+        DECLARE @LastStepColumn int
+        SELECT TOP 1 @LastStepRow = [Row], @LastStepColumn = [Column] FROM Impl.GameSessionLog WHERE GameID = @GameID ORDER BY Step DESC
+        DECLARE @Result int
+        SET @Result = Impl.FindOppositeCornerStep(@GameID, @LastStepRow, @LastStepColumn)
+        IF @Result IS NULL
+            SET @Result = Impl.FindFreeCell(@GameID, 1)
+        SET @NextStepRow = @Result / 10
+        SET @NextStepColumn = @Result % 10
+    END
+    ELSE
+    BEGIN
+        RETURN
+    END
+GO
+
 
 /* API */
 IF OBJECT_ID(N'dbo.StartGame', N'P') IS NOT NULL
@@ -299,6 +430,17 @@ AS
     EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'Impl.RandomGenerateCompNextStep'
 GO
 
+IF OBJECT_ID(N'dbo.StartSmartCompGame', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.StartSmartCompGame
+GO
+
+CREATE PROCEDURE dbo.StartSmartCompGame
+    @GameID varchar(100),
+    @IsUserFirst bit
+AS
+    SET NOCOUNT ON
+    EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'Impl.SmartGenerateCompNextStep'
+GO
 
 IF OBJECT_ID(N'dbo.FinishGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.FinishGame

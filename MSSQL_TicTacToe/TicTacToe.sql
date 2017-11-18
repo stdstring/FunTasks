@@ -299,7 +299,7 @@ IF OBJECT_ID (N'Impl.FindOppositeCornerStep', N'FN') IS NOT NULL
     DROP FUNCTION Impl.FindOppositeCornerStep
 GO
 
-CREATE FUNCTION Impl.FindOppositeCornerStep (@GameID varchar(100), @Step int/*@Row int, @Column int*/)
+CREATE FUNCTION Impl.FindOppositeCornerStep (@GameID varchar(100), @Step int)
 RETURNS int
 AS
 BEGIN
@@ -320,6 +320,20 @@ BEGIN
     IF @Step = 23
         RETURN IIF(Impl.GetCellValue(@GameID, 11) = ' ', 11, IIF(Impl.GetCellValue(@GameID, 31) = ' ', 31, NULL))
     RETURN NULL
+END
+GO
+
+IF OBJECT_ID (N'Impl.GetNthStep', N'FN') IS NOT NULL
+    DROP FUNCTION Impl.GetNthStep
+GO
+
+CREATE FUNCTION Impl.GetNthStep (@GameID varchar(100), @StepNumber int)
+RETURNS int
+AS
+BEGIN
+    DECLARE @Step int
+    SELECT @Step = Step FROM Impl.GameSessionLog WHERE (GameID = @GameID) AND (Number = @StepNumber)
+    RETURN @Step
 END
 GO
 
@@ -357,7 +371,43 @@ AS
     END
     ELSE
     BEGIN
-        RETURN
+        DECLARE @StepCount int
+        SELECT @StepCount = COUNT(Number) FROM Impl.GameSessionLog WHERE GameID = @GameID
+        DECLARE @FirstUserStep int, @SecondUserStep int
+        SET @FirstUserStep = Impl.GetNthStep(@GameID, 1)
+        SET @SecondUserStep = Impl.GetNthStep(@GameID, 3)
+        IF @FirstUserStep = 22
+            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 11) = ' ', 11, IIF(Impl.GetCellValue(@GameID, 13) = ' ', 13, IIF(Impl.GetCellValue(@GameID, 31) = ' ', 31, IIF(Impl.GetCellValue(@GameID, 33) = ' ', 33, NULL))))
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 11)
+            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 31) = ' ', 31, 13)
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 31)
+            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 11) = ' ', 11, 33)
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 13)
+            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 33) = ' ', 33, 11)
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 33)
+            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 13) = ' ', 31, 13)
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep IN (12, 32, 21, 23)) AND (@SecondUserStep IN (11, 13, 31, 33))
+            SET @NextStep = Impl.FindOppositeCornerStep(@GameID, @SecondUserStep)
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep IN (12, 32, 21, 23)) AND (@SecondUserStep IN (12, 32, 21, 23))
+            SET @NextStep = 11
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 12) AND (@SecondUserStep = 21)
+            SET @NextStep = 11
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 12) AND (@SecondUserStep = 23)
+            SET @NextStep = 13
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 21) AND (@SecondUserStep = 12)
+            SET @NextStep = 11
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 21) AND (@SecondUserStep = 32)
+            SET @NextStep = 31
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 32) AND (@SecondUserStep = 21)
+            SET @NextStep = 31
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 32) AND (@SecondUserStep = 23)
+            SET @NextStep = 33
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 23) AND (@SecondUserStep = 32)
+            SET @NextStep = 33
+        ELSE IF (@StepCount = 3) AND (@FirstUserStep = 23) AND (@SecondUserStep = 12)
+            SET @NextStep = 13
+        IF @NextStep IS NULL
+            SET @NextStep = Impl.FindFreeCell(@GameID, 1)
     END
 GO
 

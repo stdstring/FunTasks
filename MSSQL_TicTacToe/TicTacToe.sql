@@ -31,12 +31,12 @@ GO
 
 CREATE TABLE Core.GameSession
 (
-GameID varchar(100) NOT NULL PRIMARY KEY,
+GameID varchar(40) NOT NULL PRIMARY KEY,
 /* 'U' = User, 'C' = Comp */
 FirstPlayer char(1) NOT NULL CHECK (FirstPlayer = 'U' OR FirstPlayer = 'C'),
-NextCompStepGenerator varchar(100) NOT NULL,
+NextCompStepGenerator varchar(50) NOT NULL,
 /* 'U' = User, 'C' = Comp, 'D' = Draw, NULL = game is not finished */
-GameResult char(1) NULL CHECK (GameResult = 'U' OR GameResult = 'C' OR GameResult = 'D')
+GameResult char(1) NULL CHECK (GameResult IS NULL OR GameResult = 'U' OR GameResult = 'C' OR GameResult = 'D')
 )
 GO
 
@@ -46,8 +46,8 @@ GO
 
 CREATE TABLE Core.GameSessionLog
 (
-GameID varchar(100) NOT NULL,
-Number int NOT NULL CHECK(Number >= 1 AND Number <= 9),
+GameID varchar(40) NOT NULL,
+Number int NOT NULL CHECK((Number >= 1) AND (Number <= 9)),
 Step int NOT NULL CHECK(Step IN (11, 12, 13, 21, 22, 23, 31, 32, 33)),
 Value char(1) NOT NULL CHECK (Value = 'X' OR Value = 'O'),
 CONSTRAINT GameSessionLog_PK PRIMARY KEY (GameID, Number),
@@ -60,7 +60,7 @@ IF OBJECT_ID (N'Core.GetCellValue', N'FN') IS NOT NULL
     DROP FUNCTION Core.GetCellValue
 GO
 
-CREATE FUNCTION Core.GetCellValue (@GameID varchar(100), @Step int)
+CREATE FUNCTION Core.GetCellValue (@GameID varchar(40), @Step int)
 RETURNS char(1)
 AS
 BEGIN
@@ -74,7 +74,7 @@ IF OBJECT_ID(N'Core.MakeStep', N'P') IS NOT NULL
     DROP PROCEDURE Core.MakeStep
 GO
 
-CREATE PROCEDURE Core.MakeStep @GameID varchar(100), @Step int, @Player char(1)
+CREATE PROCEDURE Core.MakeStep @GameID varchar(40), @Step int, @Player char(1)
 AS
     SET NOCOUNT ON
     DECLARE @FirstPlayer char(1)
@@ -88,7 +88,7 @@ IF OBJECT_ID (N'Core.GetRowValue', N'FN') IS NOT NULL
     DROP FUNCTION Core.GetRowValue
 GO
 
-CREATE FUNCTION Core.GetRowValue (@GameID varchar(100), @Row int)
+CREATE FUNCTION Core.GetRowValue (@GameID varchar(40), @Row int)
 RETURNS char(3)
 AS
 BEGIN
@@ -100,7 +100,7 @@ IF OBJECT_ID (N'Core.GetColumnValue', N'FN') IS NOT NULL
     DROP FUNCTION Core.GetColumnValue
 GO
 
-CREATE FUNCTION Core.GetColumnValue (@GameID varchar(100), @Column int)
+CREATE FUNCTION Core.GetColumnValue (@GameID varchar(40), @Column int)
 RETURNS char(3)
 AS
 BEGIN
@@ -112,7 +112,7 @@ IF OBJECT_ID (N'Core.GetDirectDiagonalValue', N'FN') IS NOT NULL
     DROP FUNCTION Core.GetDirectDiagonalValue
 GO
 
-CREATE FUNCTION Core.GetDirectDiagonalValue (@GameID varchar(100))
+CREATE FUNCTION Core.GetDirectDiagonalValue (@GameID varchar(40))
 RETURNS char(3)
 AS
 BEGIN
@@ -124,7 +124,7 @@ IF OBJECT_ID (N'Core.GetInverseDiagonalValue', N'FN') IS NOT NULL
     DROP FUNCTION Core.GetInverseDiagonalValue
 GO
 
-CREATE FUNCTION Core.GetInverseDiagonalValue (@GameID varchar(100))
+CREATE FUNCTION Core.GetInverseDiagonalValue (@GameID varchar(40))
 RETURNS char(3)
 AS
 BEGIN
@@ -136,7 +136,7 @@ IF OBJECT_ID(N'Core.ProcessUserStep', N'P') IS NOT NULL
     DROP PROCEDURE Core.ProcessUserStep
 GO
 
-CREATE PROCEDURE Core.ProcessUserStep @GameID varchar(100), @Step int
+CREATE PROCEDURE Core.ProcessUserStep @GameID varchar(40), @Step int
 AS
     SET NOCOUNT ON
     DECLARE @CellValue char(1)
@@ -153,7 +153,7 @@ IF OBJECT_ID(N'Core.ProcessCompStep', N'P') IS NOT NULL
     DROP PROCEDURE Core.ProcessCompStep
 GO
 
-CREATE PROCEDURE Core.ProcessCompStep @GameID varchar(100)
+CREATE PROCEDURE Core.ProcessCompStep @GameID varchar(40)
 AS
     SET NOCOUNT ON
     DECLARE @NextCompStep int
@@ -167,7 +167,7 @@ IF OBJECT_ID (N'Core.CalculateGameResult', N'P') IS NOT NULL
     DROP PROCEDURE Core.CalculateGameResult
 GO
 
-CREATE PROCEDURE Core.CalculateGameResult @GameID varchar(100)
+CREATE PROCEDURE Core.CalculateGameResult @GameID varchar(40)
 AS
     IF EXISTS(SELECT GameResult FROM CORE.GameSession WHERE GameID = @GameID AND GameResult IS NOT NULL)
         RETURN
@@ -202,7 +202,7 @@ IF OBJECT_ID (N'CompStrategy.FindFreeCell', N'FN') IS NOT NULL
     DROP FUNCTION CompStrategy.FindFreeCell
 GO
 
-CREATE FUNCTION CompStrategy.FindFreeCell (@GameID varchar(100), @CellNumber int)
+CREATE FUNCTION CompStrategy.FindFreeCell (@GameID varchar(40), @CellNumber int)
 RETURNS int
 AS
 BEGIN
@@ -233,7 +233,7 @@ IF OBJECT_ID(N'CompStrategy.SimpleGenerateCompNextStep', N'P') IS NOT NULL
     DROP PROCEDURE CompStrategy.SimpleGenerateCompNextStep
 GO
 
-CREATE PROCEDURE CompStrategy.SimpleGenerateCompNextStep @GameID varchar(100), @NextStep int OUTPUT
+CREATE PROCEDURE CompStrategy.SimpleGenerateCompNextStep @GameID varchar(40), @NextStep int OUTPUT
 AS
     SET NOCOUNT ON
     SET @NextStep = CompStrategy.FindFreeCell(@GameID, 1)
@@ -243,7 +243,7 @@ IF OBJECT_ID(N'CompStrategy.RandomGenerateCompNextStep', N'P') IS NOT NULL
     DROP PROCEDURE CompStrategy.RandomGenerateCompNextStep
 GO
 
-CREATE PROCEDURE CompStrategy.RandomGenerateCompNextStep @GameID varchar(100), @NextStep int OUTPUT
+CREATE PROCEDURE CompStrategy.RandomGenerateCompNextStep @GameID varchar(40), @NextStep int OUTPUT
 AS
     DECLARE @FreeCellsCount int
     SELECT @FreeCellsCount = 9 - COUNT(Number) FROM Core.GameSessionLog WHERE GameID = @GameID
@@ -256,7 +256,7 @@ IF OBJECT_ID (N'CompStrategy.FindMandatoryStep', N'FN') IS NOT NULL
     DROP FUNCTION CompStrategy.FindMandatoryStep
 GO
 
-CREATE FUNCTION CompStrategy.FindMandatoryStep (@GameID varchar(100), @Value char(1))
+CREATE FUNCTION CompStrategy.FindMandatoryStep (@GameID varchar(40), @Value char(1))
 RETURNS int
 AS
 BEGIN
@@ -297,7 +297,7 @@ IF OBJECT_ID (N'CompStrategy.FindOppositeCornerStep', N'FN') IS NOT NULL
     DROP FUNCTION CompStrategy.FindOppositeCornerStep
 GO
 
-CREATE FUNCTION CompStrategy.FindOppositeCornerStep (@GameID varchar(100), @Step int)
+CREATE FUNCTION CompStrategy.FindOppositeCornerStep (@GameID varchar(40), @Step int)
 RETURNS int
 AS
 BEGIN
@@ -325,7 +325,7 @@ IF OBJECT_ID (N'CompStrategy.GetNthStep', N'FN') IS NOT NULL
     DROP FUNCTION CompStrategy.GetNthStep
 GO
 
-CREATE FUNCTION CompStrategy.GetNthStep (@GameID varchar(100), @StepNumber int)
+CREATE FUNCTION CompStrategy.GetNthStep (@GameID varchar(40), @StepNumber int)
 RETURNS int
 AS
 BEGIN
@@ -339,7 +339,7 @@ IF OBJECT_ID(N'CompStrategy.SmartGenerateCompNextStep', N'P') IS NOT NULL
     DROP PROCEDURE CompStrategy.SmartGenerateCompNextStep
 GO
 
-CREATE PROCEDURE CompStrategy.SmartGenerateCompNextStep @GameID varchar(100), @NextStep int OUTPUT
+CREATE PROCEDURE CompStrategy.SmartGenerateCompNextStep @GameID varchar(40), @NextStep int OUTPUT
 AS
     SET NOCOUNT ON
     DECLARE @Value char(1)
@@ -413,10 +413,7 @@ IF OBJECT_ID(N'dbo.StartGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.StartGame
 GO
 
-CREATE PROCEDURE dbo.StartGame
-    @GameID varchar(100),
-    @IsUserFirst bit,
-    @NextCompStepGenerator varchar(100)
+CREATE PROCEDURE dbo.StartGame @GameID varchar(40), @IsUserFirst bit, @NextCompStepGenerator varchar(50)
 AS
     SET NOCOUNT ON
     INSERT Core.GameSession(GameID, FirstPlayer, NextCompStepGenerator) VALUES(@GameID, IIF(@IsUserFirst = 1, 'U', 'C'), @NextCompStepGenerator)
@@ -428,9 +425,7 @@ IF OBJECT_ID(N'dbo.StartSimpleCompGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.StartSimpleCompGame
 GO
 
-CREATE PROCEDURE dbo.StartSimpleCompGame
-    @GameID varchar(100),
-    @IsUserFirst bit
+CREATE PROCEDURE dbo.StartSimpleCompGame @GameID varchar(40), @IsUserFirst bit
 AS
     SET NOCOUNT ON
     EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'CompStrategy.SimpleGenerateCompNextStep'
@@ -440,9 +435,7 @@ IF OBJECT_ID(N'dbo.StartRandomCompGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.StartRandomCompGame
 GO
 
-CREATE PROCEDURE dbo.StartRandomCompGame
-    @GameID varchar(100),
-    @IsUserFirst bit
+CREATE PROCEDURE dbo.StartRandomCompGame @GameID varchar(40), @IsUserFirst bit
 AS
     SET NOCOUNT ON
     EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'CompStrategy.RandomGenerateCompNextStep'
@@ -452,9 +445,7 @@ IF OBJECT_ID(N'dbo.StartSmartCompGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.StartSmartCompGame
 GO
 
-CREATE PROCEDURE dbo.StartSmartCompGame
-    @GameID varchar(100),
-    @IsUserFirst bit
+CREATE PROCEDURE dbo.StartSmartCompGame @GameID varchar(40), @IsUserFirst bit
 AS
     SET NOCOUNT ON
     EXECUTE dbo.StartGame @GameID, @IsUserFirst, 'CompStrategy.SmartGenerateCompNextStep'
@@ -464,7 +455,7 @@ IF OBJECT_ID(N'dbo.FinishGame', N'P') IS NOT NULL
     DROP PROCEDURE dbo.FinishGame
 GO
 
-CREATE PROCEDURE dbo.FinishGame @GameID varchar(100)
+CREATE PROCEDURE dbo.FinishGame @GameID varchar(40)
 AS
     SET NOCOUNT ON
     DELETE FROM Core.GameSession WHERE GameID = @GameID
@@ -474,7 +465,7 @@ IF OBJECT_ID(N'dbo.ShowGameLog', N'P') IS NOT NULL
     DROP PROCEDURE dbo.ShowGameLog
 GO
 
-CREATE PROCEDURE dbo.ShowGameLog @GameID varchar(100)
+CREATE PROCEDURE dbo.ShowGameLog @GameID varchar(40)
 AS
     SET NOCOUNT ON
     DECLARE @Number int
@@ -497,7 +488,7 @@ IF OBJECT_ID(N'dbo.ShowBoard', N'P') IS NOT NULL
     DROP PROCEDURE dbo.ShowBoard
 GO
 
-CREATE PROCEDURE dbo.ShowBoard @GameID varchar(100)
+CREATE PROCEDURE dbo.ShowBoard @GameID varchar(40)
 AS
     SET NOCOUNT ON
     PRINT REPLICATE(N'=', 13)
@@ -519,7 +510,7 @@ IF OBJECT_ID (N'dbo.GetGameResult', N'FN') IS NOT NULL
     DROP FUNCTION dbo.GetGameResult
 GO
 
-CREATE FUNCTION dbo.GetGameResult (@GameID varchar(100))
+CREATE FUNCTION dbo.GetGameResult (@GameID varchar(40))
 RETURNS varchar(20)
 AS
 BEGIN
@@ -539,10 +530,7 @@ IF OBJECT_ID('dbo.ProcessStep', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ProcessStep
 GO
 
-CREATE PROCEDURE dbo.ProcessStep
-    @GameID varchar(100),
-    @UserStepRow int,
-    @UserStepColumn int
+CREATE PROCEDURE dbo.ProcessStep @GameID varchar(40), @UserStepRow int, @UserStepColumn int
 AS
     SET NOCOUNT ON
     DECLARE @GameResult varchar(20)

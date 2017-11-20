@@ -198,6 +198,51 @@ AS
         UPDATE Core.GameSession SET GameResult = 'D' WHERE GameID = @GameID
 GO
 
+IF OBJECT_ID(N'Core.ShowGameLog', N'P') IS NOT NULL
+    DROP PROCEDURE Core.ShowGameLog
+GO
+
+CREATE PROCEDURE Core.ShowGameLog @GameID varchar(40)
+AS
+    SET NOCOUNT ON
+    DECLARE @Number int
+    DECLARE @Step int
+    DECLARE @Value char(1)
+    DECLARE LogCursor CURSOR READ_ONLY FOR SELECT Number, Step, Value FROM Core.GameSessionLog WHERE GameID = @GameID ORDER BY Number ASC
+    OPEN LogCursor
+    FETCH NEXT FROM LogCursor INTO @Number, @Step, @Value
+    PRINT N'GAME LOG:'
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        PRINT N'Number = ' + STR(@Number, 1) + N', Row = ' + STR(@Step / 10, 1) + N', Column = ' + STR(@Step % 10, 1) + N', Value = ' + @Value
+        FETCH NEXT FROM LogCursor INTO @Number, @Step, @Value
+    END
+    CLOSE LogCursor
+    DEALLOCATE LogCursor
+GO
+
+IF OBJECT_ID(N'Core.ShowBoard', N'P') IS NOT NULL
+    DROP PROCEDURE Core.ShowBoard
+GO
+
+CREATE PROCEDURE Core.ShowBoard @GameID varchar(40)
+AS
+    SET NOCOUNT ON
+    PRINT REPLICATE(N'=', 13)
+    PRINT N'|   |   |   |'
+    PRINT N'| ' + Core.GetCellValue(@GameID, 11) + N' | ' + Core.GetCellValue(@GameID, 12) + N' | ' + Core.GetCellValue(@GameID, 13) + N' |'
+    PRINT N'|   |   |   |'
+    PRINT REPLICATE(N'=', 13)
+    PRINT N'|   |   |   |'
+    PRINT N'| ' + Core.GetCellValue(@GameID, 21) + N' | ' + Core.GetCellValue(@GameID, 22) + N' | ' + Core.GetCellValue(@GameID, 23) + N' |'
+    PRINT N'|   |   |   |'
+    PRINT REPLICATE(N'=', 13)
+    PRINT N'|   |   |   |'
+    PRINT N'| ' + Core.GetCellValue(@GameID, 31) + N' | ' + Core.GetCellValue(@GameID, 32) + N' | ' + Core.GetCellValue(@GameID, 33) + N' |'
+    PRINT N'|   |   |   |'
+    PRINT REPLICATE(N'=', 13)
+GO
+
 IF OBJECT_ID (N'CompStrategy.FindFreeCell', N'FN') IS NOT NULL
     DROP FUNCTION CompStrategy.FindFreeCell
 GO
@@ -373,15 +418,15 @@ AS
         SET @FirstUserStep = CompStrategy.GetNthStep(@GameID, 1)
         SET @SecondUserStep = CompStrategy.GetNthStep(@GameID, 3)
         IF @FirstUserStep = 22
-            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 11) = ' ', 11, IIF(Impl.GetCellValue(@GameID, 13) = ' ', 13, IIF(Impl.GetCellValue(@GameID, 31) = ' ', 31, IIF(Impl.GetCellValue(@GameID, 33) = ' ', 33, NULL))))
+            SET @NextStep = IIF(Core.GetCellValue(@GameID, 11) = ' ', 11, IIF(Core.GetCellValue(@GameID, 13) = ' ', 13, IIF(Core.GetCellValue(@GameID, 31) = ' ', 31, IIF(Core.GetCellValue(@GameID, 33) = ' ', 33, NULL))))
         ELSE IF (@StepCount = 3) AND (@FirstUserStep = 11)
-            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 31) = ' ', 31, 13)
+            SET @NextStep = IIF(Core.GetCellValue(@GameID, 31) = ' ', 31, 13)
         ELSE IF (@StepCount = 3) AND (@FirstUserStep = 31)
-            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 11) = ' ', 11, 33)
+            SET @NextStep = IIF(Core.GetCellValue(@GameID, 11) = ' ', 11, 33)
         ELSE IF (@StepCount = 3) AND (@FirstUserStep = 13)
-            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 33) = ' ', 33, 11)
+            SET @NextStep = IIF(Core.GetCellValue(@GameID, 33) = ' ', 33, 11)
         ELSE IF (@StepCount = 3) AND (@FirstUserStep = 33)
-            SET @NextStep = IIF(Impl.GetCellValue(@GameID, 13) = ' ', 31, 13)
+            SET @NextStep = IIF(Core.GetCellValue(@GameID, 13) = ' ', 31, 13)
         ELSE IF (@StepCount = 3) AND (@FirstUserStep IN (12, 32, 21, 23)) AND (@SecondUserStep IN (11, 13, 31, 33))
             SET @NextStep = CompStrategy.FindOppositeCornerStep(@GameID, @SecondUserStep)
         ELSE IF (@StepCount = 3) AND (@FirstUserStep IN (12, 32, 21, 23)) AND (@SecondUserStep IN (12, 32, 21, 23))
@@ -461,50 +506,21 @@ AS
     DELETE FROM Core.GameSession WHERE GameID = @GameID
 GO
 
-IF OBJECT_ID(N'dbo.ShowGameLog', N'P') IS NOT NULL
-    DROP PROCEDURE dbo.ShowGameLog
+IF OBJECT_ID(N'dbo.ShowInfo', N'P') IS NOT NULL
+    DROP PROCEDURE dbo.ShowInfo
 GO
 
-CREATE PROCEDURE dbo.ShowGameLog @GameID varchar(40)
+CREATE PROCEDURE dbo.ShowInfo @GameID varchar(40)
 AS
     SET NOCOUNT ON
-    DECLARE @Number int
-    DECLARE @Step int
-    DECLARE @Value char(1)
-    DECLARE LogCursor CURSOR READ_ONLY FOR SELECT Number, Step, Value FROM Core.GameSessionLog WHERE GameID = @GameID ORDER BY Number ASC
-    OPEN LogCursor
-    FETCH NEXT FROM LogCursor INTO @Number, @Step, @Value
-    PRINT N'GAME LOG:'
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        PRINT N'Number = ' + STR(@Number, 1) + N', Row = ' + STR(@Step / 10, 1) + N', Column = ' + STR(@Step % 10, 1) + N', Value = ' + @Value
-        FETCH NEXT FROM LogCursor INTO @Number, @Step, @Value
-    END
-    CLOSE LogCursor
-    DEALLOCATE LogCursor
+    EXECUTE Core.ShowBoard @GameID
+    EXECUTE Core.ShowGameLog @GameID
+    DECLARE @GameResult varchar(20)
+    SET @GameResult = dbo.GetGameResult(@GameID)
+    IF (@GameResult IS NOT NULL)
+        PRINT N'Game is finished. ' + @GameResult
 GO
 
-IF OBJECT_ID(N'dbo.ShowBoard', N'P') IS NOT NULL
-    DROP PROCEDURE dbo.ShowBoard
-GO
-
-CREATE PROCEDURE dbo.ShowBoard @GameID varchar(40)
-AS
-    SET NOCOUNT ON
-    PRINT REPLICATE(N'=', 13)
-    PRINT N'|   |   |   |'
-    PRINT N'| ' + Core.GetCellValue(@GameID, 11) + N' | ' + Core.GetCellValue(@GameID, 12) + N' | ' + Core.GetCellValue(@GameID, 13) + N' |'
-    PRINT N'|   |   |   |'
-    PRINT REPLICATE(N'=', 13)
-    PRINT N'|   |   |   |'
-    PRINT N'| ' + Core.GetCellValue(@GameID, 21) + N' | ' + Core.GetCellValue(@GameID, 22) + N' | ' + Core.GetCellValue(@GameID, 23) + N' |'
-    PRINT N'|   |   |   |'
-    PRINT REPLICATE(N'=', 13)
-    PRINT N'|   |   |   |'
-    PRINT N'| ' + Core.GetCellValue(@GameID, 31) + N' | ' + Core.GetCellValue(@GameID, 32) + N' | ' + Core.GetCellValue(@GameID, 33) + N' |'
-    PRINT N'|   |   |   |'
-    PRINT REPLICATE(N'=', 13)
-GO
 
 IF OBJECT_ID (N'dbo.GetGameResult', N'FN') IS NOT NULL
     DROP FUNCTION dbo.GetGameResult
@@ -533,14 +549,9 @@ GO
 CREATE PROCEDURE dbo.ProcessStep @GameID varchar(40), @UserStepRow int, @UserStepColumn int
 AS
     SET NOCOUNT ON
-    DECLARE @GameResult varchar(20)
-    EXECUTE Core.CalculateGameResult @GameID
-    SET @GameResult = dbo.GetGameResult(@GameID)
-    IF (@GameResult IS NOT NULL)
+    IF (dbo.GetGameResult(@GameID) IS NOT NULL)
     BEGIN
-        EXECUTE dbo.ShowBoard @GameID
-        EXECUTE dbo.ShowGameLog @GameID
-        PRINT N'Game is finished. ' + @GameResult
+        EXECUTE dbo.ShowInfo @GameID
         RETURN
     END
     BEGIN TRY
@@ -557,21 +568,14 @@ AS
         RETURN
     END CATCH
     EXECUTE Core.CalculateGameResult @GameID
-    SET @GameResult = dbo.GetGameResult(@GameID)
-    IF (@GameResult IS NOT NULL)
+    IF (dbo.GetGameResult(@GameID) IS NOT NULL)
     BEGIN
-        EXECUTE dbo.ShowBoard @GameID
-        EXECUTE dbo.ShowGameLog @GameID
-        PRINT N'Game is finished. ' + @GameResult
+        EXECUTE dbo.ShowInfo @GameID
         RETURN
     END
     EXECUTE Core.ProcessCompStep @GameID
-    EXECUTE dbo.ShowBoard @GameID
-    EXECUTE dbo.ShowGameLog @GameID
     EXECUTE Core.CalculateGameResult @GameID
-    SET @GameResult = dbo.GetGameResult(@GameID)
-    IF (@GameResult IS NOT NULL)
-        PRINT N'Game is finished. ' + @GameResult
+    EXECUTE dbo.ShowInfo @GameID
 GO
 
 IF OBJECT_ID(N'dbo.Cleanup', N'P') IS NOT NULL
@@ -586,7 +590,7 @@ GO
 
 /*
 EXECUTE StartSimpleCompGame N'AA', 1;
-EXECUTE ShowBoard N'AA';
+EXECUTE ShowInfo N'AA';
 EXECUTE ProcessStep N'AA', 2, 2;
 EXECUTE ProcessStep N'AA', 1, 1;
 EXECUTE ProcessStep N'AA', 1, 3;
@@ -596,7 +600,7 @@ EXECUTE FinishGame N'AA';
 
 /*
 EXECUTE StartSimpleCompGame N'BB', 0;
-EXECUTE ShowBoard N'BB';
+EXECUTE ShowInfo N'BB';
 EXECUTE ProcessStep N'BB', 1, 2;
 EXECUTE ProcessStep N'BB', 1, 3;
 EXECUTE ProcessStep N'BB', 2, 3;
@@ -605,7 +609,7 @@ EXECUTE FinishGame N'BB';
 
 /*
 EXECUTE StartSimpleCompGame N'CC', 0;
-EXECUTE ShowBoard N'CC';
+EXECUTE ShowInfo N'CC';
 EXECUTE ProcessStep N'CC', 1, 2;
 EXECUTE ProcessStep N'CC', 3, 3;
 EXECUTE ProcessStep N'CC', 3, 1;
@@ -615,7 +619,7 @@ EXECUTE FinishGame N'CC';
 
 /*
 EXECUTE StartRandomCompGame N'AA', 1;
-EXECUTE ShowBoard N'AA';
+EXECUTE ShowInfo N'AA';
 EXECUTE ProcessStep N'AA', 2, 2;
 EXECUTE ProcessStep N'AA', 1, 1;
 EXECUTE ProcessStep N'AA', 3, 3;
@@ -628,7 +632,7 @@ EXECUTE dbo.Cleanup
 
 /*
 EXECUTE StartSmartCompGame N'AA', 1;
-EXECUTE ShowBoard N'AA';
+EXECUTE ShowInfo N'AA';
 EXECUTE ProcessStep N'AA', 2, 2;
 EXECUTE ProcessStep N'AA', 1, 3;
 EXECUTE ProcessStep N'AA', 2, 1;
@@ -639,7 +643,7 @@ EXECUTE FinishGame N'AA';
 
 /*
 EXECUTE StartSmartCompGame N'AA', 0;
-EXECUTE ShowBoard N'AA';
+EXECUTE ShowInfo N'AA';
 EXECUTE ProcessStep N'AA', 1, 2;
 EXECUTE ProcessStep N'AA', 1, 3;
 EXECUTE ProcessStep N'AA', 2, 1;

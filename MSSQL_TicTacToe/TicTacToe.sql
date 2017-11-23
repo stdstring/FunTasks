@@ -461,9 +461,11 @@ GO
 CREATE PROCEDURE dbo.StartGame @GameID varchar(40), @IsUserFirst bit, @NextCompStepGenerator varchar(50)
 AS
     SET NOCOUNT ON
+    BEGIN TRANSACTION StartGame
     INSERT Core.GameSession(GameID, FirstPlayer, NextCompStepGenerator) VALUES(@GameID, IIF(@IsUserFirst = 1, 'U', 'C'), @NextCompStepGenerator)
     IF (@IsUserFirst <> 1)
         INSERT Core.GameSessionLog(GameID, Number, Step, Value) VALUES(@GameID, 1, 22, 'X')
+    COMMIT TRANSACTION StartGame
 GO
 
 IF OBJECT_ID(N'dbo.StartSimpleCompGame', N'P') IS NOT NULL
@@ -503,7 +505,9 @@ GO
 CREATE PROCEDURE dbo.FinishGame @GameID varchar(40)
 AS
     SET NOCOUNT ON
+    BEGIN TRANSACTION FinishGame
     DELETE FROM Core.GameSession WHERE GameID = @GameID
+    COMMIT TRANSACTION FinishGame
 GO
 
 IF OBJECT_ID(N'dbo.ShowInfo', N'P') IS NOT NULL
@@ -549,9 +553,11 @@ GO
 CREATE PROCEDURE dbo.ProcessStep @GameID varchar(40), @UserStepRow int, @UserStepColumn int
 AS
     SET NOCOUNT ON
+    BEGIN TRANSACTION ProcessStep
     IF (dbo.GetGameResult(@GameID) IS NOT NULL)
     BEGIN
         EXECUTE dbo.ShowInfo @GameID
+        COMMIT TRANSACTION ProcessStep
         RETURN
     END
     BEGIN TRY
@@ -565,17 +571,20 @@ AS
         DECLARE @ErrorState int
         SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
         RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
+        ROLLBACK TRANSACTION ProcessStep
         RETURN
     END CATCH
     EXECUTE Core.CalculateGameResult @GameID
     IF (dbo.GetGameResult(@GameID) IS NOT NULL)
     BEGIN
         EXECUTE dbo.ShowInfo @GameID
+        COMMIT TRANSACTION ProcessStep
         RETURN
     END
     EXECUTE Core.ProcessCompStep @GameID
     EXECUTE Core.CalculateGameResult @GameID
     EXECUTE dbo.ShowInfo @GameID
+    COMMIT TRANSACTION ProcessStep
 GO
 
 IF OBJECT_ID(N'dbo.Cleanup', N'P') IS NOT NULL
@@ -585,7 +594,9 @@ GO
 CREATE PROCEDURE dbo.Cleanup
 AS
     SET NOCOUNT ON
+    BEGIN TRANSACTION Cleanup
     DELETE FROM Core.GameSession
+    COMMIT TRANSACTION Cleanup
 GO
 
 /*

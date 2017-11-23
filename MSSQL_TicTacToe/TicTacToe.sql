@@ -36,7 +36,7 @@ GameID varchar(40) NOT NULL PRIMARY KEY,
 FirstPlayer char(1) NOT NULL CHECK (FirstPlayer = 'U' OR FirstPlayer = 'C'),
 NextCompStepGenerator varchar(50) NOT NULL,
 /* 'U' = User, 'C' = Comp, 'D' = Draw, NULL = game is not finished */
-GameResult char(1) NULL CHECK (GameResult IS NULL OR GameResult = 'U' OR GameResult = 'C' OR GameResult = 'D')
+GameResult char(1) NULL CHECK (GameResult = 'U' OR GameResult = 'C' OR GameResult = 'D')
 )
 GO
 

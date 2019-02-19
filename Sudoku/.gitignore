@@ -1,0 +1,12 @@
+*.suo
+*.user
+.vs/*
+packages/*
+Sudoku.CSharp/bin/*
+Sudoku.CSharp/obj/*
+Sudoku.CSharp.Tests/bin/*
+Sudoku.CSharp.Tests/obj/*
+Sudoku.FSharp/bin/*
+Sudoku.FSharp/obj/*
+Sudoku.FSharp.Tests/bin/*
+Sudoku.FSharp.Tests/obj/*

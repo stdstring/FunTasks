@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+
+project(LargeLogRegexReader CXX)
+
+enable_testing()
+add_subdirectory(RegexImplTests bin/RegexImplTests)

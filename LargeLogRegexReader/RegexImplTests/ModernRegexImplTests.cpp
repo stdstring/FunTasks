@@ -12,90 +12,17 @@ namespace RegexImpl
 namespace
 {
 
-/*std::string SimplifyPattern(std::string const &source)
-{
-    std::string dest;
-    bool isAsterisk = false;
-    for (std::string::const_iterator iterator = source.cbegin(); iterator != source.cend(); ++iterator)
-    {
-        char current = *iterator;
-        if (current == '*')
-        {
-            if (!isAsterisk)
-            {
-                dest.push_back(current);
-                isAsterisk = true;
-            }
-        }
-        else
-        {
-            dest.push_back(current);
-            isAsterisk = false;
-        }
-    }
-    return dest;
-}
-
-bool ProcessLastAsteriskMatch(std::string const &source, std::string const &pattern, size_t sourcePos, size_t patternPos)
-{
-    if (patternPos == pattern.size() - 1)
-        return true;
-    patternPos += 1;
-    size_t startSourcePos = source.size() - (pattern.size() - patternPos);
-    if (startSourcePos < sourcePos)
-        return false;
-    for (size_t currentSourcePos = startSourcePos, currentPatternPos = patternPos; currentSourcePos < source.size() && currentPatternPos < pattern.size(); ++currentSourcePos, ++currentPatternPos)
-    {
-        if (pattern[currentPatternPos] != '?' && pattern[currentPatternPos] != source[currentSourcePos])
-            return false;
-    }
-    return true;
-}
-
-bool IsMatch(std::string const &source, std::string const &pattern)
-{
-    if (pattern.empty())
-        return source.empty();
-    size_t lastAsteriskPos = pattern.find_last_of('*');
-    size_t sourcePos = 0;
-    size_t patternPos = 0;
-    size_t sourceStablePos = std::string::npos;
-    size_t patternStablePos = std::string::npos;
-    while (sourcePos < source.size())
-    {
-        if (pattern[patternPos] == '*')
-        {
-            if (patternPos == lastAsteriskPos)
-                return ProcessLastAsteriskMatch(source, pattern, sourcePos, patternPos);
-            sourceStablePos = sourcePos;
-            patternStablePos = patternPos;
-            ++patternPos;
-        }
-        else if (pattern[patternPos] == '?')
-        {
-            ++sourcePos;
-            ++patternPos;
-        }
-        else if (source[sourcePos] == pattern[patternPos])
-        {
-            ++sourcePos;
-            ++patternPos;
-        }
-        else if (source[sourcePos] != pattern[patternPos])
-        {
-            if (sourceStablePos == std::string::npos)
-                return false;
-            ++sourceStablePos;
-            sourcePos = sourceStablePos;
-            patternPos = patternStablePos + 1;
-        }
-    }
-    return (patternPos == pattern.size()) || (patternPos == pattern.size() - 1 && patternPos == lastAsteriskPos);
-}*/
-
 constexpr char Asterisk = '*';
+constexpr char Backslash = '\\';
+constexpr char QuestionMark = '?';
+constexpr char Eof = 0;
 
-std::string SimplifyPattern(std::string const &source)
+bool IsEof(std::string const &str, size_t pos)
+{
+    return pos >= str.size();
+}
+
+std::string PreparePattern(std::string const &source)
 {
     std::string dest;
     bool isAsterisk = false;
@@ -116,6 +43,11 @@ std::string SimplifyPattern(std::string const &source)
             isAsterisk = false;
         }
     }
+    // process of single last backslash
+    if (dest.size() == 1 && dest.at(dest.size() - 1) == Backslash)
+        dest.push_back(Backslash);
+    if (dest.size() > 1 && dest.at(dest.size() - 1) == Backslash && dest.at(dest.size() - 2) != Backslash)
+        dest.push_back(Backslash);
     return dest;
 }
 
@@ -168,15 +100,6 @@ public:
 };
 
 typedef std::shared_ptr<IHandler> TIHandlerPtr;
-
-constexpr char Backslash = '\\';
-constexpr char QuestionMark = '?';
-constexpr char Eof = 0;
-
-bool IsEof(std::string const &str, size_t pos)
-{
-    return pos >= str.size();
-}
 
 constexpr size_t CharHandlerId = 1;
 constexpr size_t DefaultHandlerId = CharHandlerId;
@@ -272,7 +195,7 @@ TIHandlerPtr GetHandler(std::vector<TIHandlerPtr> const &handlers, size_t id)
     return *result;
 }
 
-bool IsMatch(std::string const &source, std::string const &pattern)
+bool IsMatchImpl(std::string const &source, std::string const &pattern)
 {
     std::vector<TIHandlerPtr> handlers = {std::make_shared<CharHandler>(source, pattern), std::make_shared<AsteriskHandler>(source, pattern)};
     State currentState(0, 0, DefaultHandlerId);
@@ -306,25 +229,33 @@ bool IsMatch(std::string const &source, std::string const &pattern)
     return ProcessFinish(source, pattern, currentState);
 }
 
+bool IsMatch(std::string const &source, std::string const &pattern)
+{
+    return IsMatchImpl(source, PreparePattern(pattern));
 }
 
-TEST(ModernRegexImplTests, SimplifyPattern)
+}
+
+TEST(ModernRegexImplTests, PreparePattern)
 {
-    ASSERT_EQ("", SimplifyPattern(""));
-    ASSERT_EQ("aaa", SimplifyPattern("aaa"));
-    ASSERT_EQ("abc", SimplifyPattern("abc"));
-    ASSERT_EQ("a?b?c?", SimplifyPattern("a?b?c?"));
-    ASSERT_EQ("a*b", SimplifyPattern("a*b"));
-    ASSERT_EQ("ab*", SimplifyPattern("ab*"));
-    ASSERT_EQ("*ab", SimplifyPattern("*ab"));
-    ASSERT_EQ("*a*b*", SimplifyPattern("*a*b*"));
-    ASSERT_EQ("?*a*b*?", SimplifyPattern("?*a*b*?"));
-    ASSERT_EQ("*ab", SimplifyPattern("*****ab"));
-    ASSERT_EQ("a*b", SimplifyPattern("a*****b"));
-    ASSERT_EQ("ab*", SimplifyPattern("ab*****"));
-    ASSERT_EQ("*a*b*", SimplifyPattern("****a*****b*****"));
-    ASSERT_EQ("?*a*b*?", SimplifyPattern("?***a****b******?"));
-    ASSERT_EQ("*?*a*b*?*", SimplifyPattern("**?***a****b*****?******"));
+    ASSERT_EQ("", PreparePattern(""));
+    ASSERT_EQ("aaa", PreparePattern("aaa"));
+    ASSERT_EQ("abc", PreparePattern("abc"));
+    ASSERT_EQ("a?b?c?", PreparePattern("a?b?c?"));
+    ASSERT_EQ("a*b", PreparePattern("a*b"));
+    ASSERT_EQ("ab*", PreparePattern("ab*"));
+    ASSERT_EQ("*ab", PreparePattern("*ab"));
+    ASSERT_EQ("*a*b*", PreparePattern("*a*b*"));
+    ASSERT_EQ("?*a*b*?", PreparePattern("?*a*b*?"));
+    ASSERT_EQ("*ab", PreparePattern("*****ab"));
+    ASSERT_EQ("a*b", PreparePattern("a*****b"));
+    ASSERT_EQ("ab*", PreparePattern("ab*****"));
+    ASSERT_EQ("*a*b*", PreparePattern("****a*****b*****"));
+    ASSERT_EQ("?*a*b*?", PreparePattern("?***a****b******?"));
+    ASSERT_EQ("*?*a*b*?*", PreparePattern("**?***a****b*****?******"));
+    ASSERT_EQ("\\\\", PreparePattern("\\"));
+    ASSERT_EQ("a\\\\", PreparePattern("a\\"));
+    ASSERT_EQ("a\\a\\ba\\\\", PreparePattern("a\\a\\ba\\"));
 }
 
 TEST(ModernRegexImplTests, IsMatch)

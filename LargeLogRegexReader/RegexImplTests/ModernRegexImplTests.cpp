@@ -17,6 +17,50 @@ constexpr char Backslash = '\\';
 constexpr char QuestionMark = '?';
 constexpr char Eof = 0;
 
+class IStringSource
+{
+public:
+    virtual bool IsEof() = 0;
+    virtual char ReadCurrent() = 0;
+    virtual bool MoveTo(size_t position) = 0;
+};
+
+typedef std::shared_ptr<IStringSource> TIStringSourcePtr;
+
+class SimpleStringSource : public IStringSource
+{
+public:
+    SimpleStringSource(std::string const &source);
+    virtual bool IsEof() override;
+    virtual char ReadCurrent() override;
+    virtual bool MoveTo(size_t position) override;
+
+private:
+    std::string _source;
+    size_t _position;
+};
+
+SimpleStringSource::SimpleStringSource(std::string const &source) : _source(source), _position(0)
+{
+}
+
+bool SimpleStringSource::IsEof()
+{
+    return _position >= _source.size();
+}
+
+char SimpleStringSource::ReadCurrent()
+{
+    return IsEof() ? Eof : _source.at(_position);
+}
+
+bool SimpleStringSource::MoveTo(size_t position)
+{
+    if (position > _source.size())
+        return false;
+    _position = position;
+}
+
 bool IsEof(std::string const &str, size_t pos)
 {
     return pos >= str.size();
@@ -108,17 +152,17 @@ constexpr size_t AsteriskHandlerId = 2;
 class CharHandler : public IHandler
 {
 public:
-    CharHandler(std::string const &source, std::string const &pattern);
+    CharHandler(TIStringSourcePtr source, std::string const &pattern);
 
-    virtual size_t GetId() { return CharHandlerId; }
+    virtual size_t GetId() override { return CharHandlerId; }
     virtual Result Process(State const & state, bool isRestore) override;
 
 private:
-    std::string _source;
+    TIStringSourcePtr _source;
     std::string _pattern;
 };
 
-CharHandler::CharHandler(std::string const &source, std::string const &pattern) : _source(source), _pattern(pattern)
+CharHandler::CharHandler(TIStringSourcePtr source, std::string const &pattern) : _source(source), _pattern(pattern)
 {
 }
 
@@ -133,7 +177,9 @@ Result CharHandler::Process(State const & state, bool isRestore)
         patternCh = _pattern.at(patternPos);
         allowWildcards = false;
     }
-    char sourceCh = _source.at(state.SourcePos);
+    //char sourceCh = _source.at(state.SourcePos);
+    _source->MoveTo(state.SourcePos);
+    char sourceCh = _source->ReadCurrent();
     if (allowWildcards && patternCh == Asterisk)
         return Result(ResultType::CHANGE_HANDLER, State(state.SourcePos, patternPos, AsteriskHandlerId));
     if (allowWildcards && patternCh == QuestionMark)
@@ -146,17 +192,17 @@ Result CharHandler::Process(State const & state, bool isRestore)
 class AsteriskHandler : public IHandler
 {
 public:
-    AsteriskHandler(std::string const &source, std::string const &pattern);
+    AsteriskHandler(TIStringSourcePtr source, std::string const &pattern);
 
-    virtual size_t GetId() { return AsteriskHandlerId; }
+    virtual size_t GetId() override { return AsteriskHandlerId; }
     virtual Result Process(State const & state, bool isRestore) override;
 
 private:
-    std::string _source;
+    TIStringSourcePtr _source;
     std::string _pattern;
 };
 
-AsteriskHandler::AsteriskHandler(std::string const &source, std::string const &pattern) : _source(source), _pattern(pattern)
+AsteriskHandler::AsteriskHandler(TIStringSourcePtr source, std::string const &pattern) : _source(source), _pattern(pattern)
 {
 }
 
@@ -169,19 +215,19 @@ Result AsteriskHandler::Process(State const & state, bool isRestore)
     else
     {
         if (IsEof(_pattern, state.PatternPos + 1))
-            return Result(ResultType::SUCCESS, State(_source.size(), _pattern.size(), 0));
+            return Result(ResultType::SUCCESS, State(0, 0, 0));
         else
             return Result(ResultType::CHANGE_HANDLER, State(state.SourcePos, state.PatternPos + 1, CharHandlerId), State(state.SourcePos, state.PatternPos, AsteriskHandlerId));
     }
 }
 
-bool ProcessFinish(std::string const &source, std::string const &pattern, State const &state)
+bool ProcessFinish(TIStringSourcePtr source, std::string const &pattern, State const &state)
 {
-    if (IsEof(source, state.SourcePos) && IsEof(pattern, state.PatternPos))
+    if (source->IsEof() && IsEof(pattern, state.PatternPos))
         return true;
-    if (!IsEof(source, state.SourcePos) && IsEof(pattern, state.PatternPos))
+    if (!source->IsEof() && IsEof(pattern, state.PatternPos))
         return false;
-    if (IsEof(source, state.SourcePos) && !IsEof(pattern, state.PatternPos))
+    if (source->IsEof() && !IsEof(pattern, state.PatternPos))
         return pattern.at(state.PatternPos) == Asterisk && IsEof(pattern, state.PatternPos + 1);
     return false;
 }
@@ -195,13 +241,13 @@ TIHandlerPtr GetHandler(std::vector<TIHandlerPtr> const &handlers, size_t id)
     return *result;
 }
 
-bool IsMatchImpl(std::string const &source, std::string const &pattern)
+bool IsMatchImpl(TIStringSourcePtr source, std::string const &pattern)
 {
     std::vector<TIHandlerPtr> handlers = {std::make_shared<CharHandler>(source, pattern), std::make_shared<AsteriskHandler>(source, pattern)};
     State currentState(0, 0, DefaultHandlerId);
     State restoreState;
     bool restore = false;
-    while (!IsEof(source, currentState.SourcePos))
+    while (!source->IsEof())
     {
         TIHandlerPtr handler = GetHandler(handlers, currentState.HandlerId);
         Result result = handler->Process(currentState, restore);
@@ -229,9 +275,14 @@ bool IsMatchImpl(std::string const &source, std::string const &pattern)
     return ProcessFinish(source, pattern, currentState);
 }
 
-bool IsMatch(std::string const &source, std::string const &pattern)
+bool IsMatch(TIStringSourcePtr source, std::string const &pattern)
 {
     return IsMatchImpl(source, PreparePattern(pattern));
+}
+
+bool IsMatch(std::string const &source, std::string const &pattern)
+{
+    return IsMatch(std::make_shared<SimpleStringSource>(source), pattern);
 }
 
 }
@@ -268,26 +319,65 @@ TEST(ModernRegexImplTests, IsMatch)
     ASSERT_FALSE(IsMatch("abc", "adc"));
     ASSERT_TRUE(IsMatch("abc", "*"));
     ASSERT_TRUE(IsMatch("ac", "a*c"));
+    ASSERT_TRUE(IsMatch("ac", "a**c"));
+    ASSERT_TRUE(IsMatch("ac", "a***c"));
     ASSERT_TRUE(IsMatch("abc", "a*c"));
+    ASSERT_TRUE(IsMatch("abc", "a**c"));
+    ASSERT_TRUE(IsMatch("abc", "a**c"));
     ASSERT_TRUE(IsMatch("abbbbbbbbbbbbbbc", "a*c"));
+    ASSERT_TRUE(IsMatch("abbbbbbbbbbbbbbc", "a**c"));
+    ASSERT_TRUE(IsMatch("abbbbbbbbbbbbbbc", "a***c"));
     ASSERT_TRUE(IsMatch("abc", "a*b*c"));
+    ASSERT_TRUE(IsMatch("abc", "a**b*c"));
+    ASSERT_TRUE(IsMatch("abc", "a*b**c"));
     ASSERT_TRUE(IsMatch("aabbcc", "a*b*c"));
+    ASSERT_TRUE(IsMatch("aabbcc", "a**b*c"));
+    ASSERT_TRUE(IsMatch("aabbcc", "a*b**c"));
     ASSERT_FALSE(IsMatch("aacc", "a*b*c"));
+    ASSERT_FALSE(IsMatch("aacc", "a**b*c"));
+    ASSERT_FALSE(IsMatch("aacc", "a*b**c"));
     ASSERT_TRUE(IsMatch("abcabcdddabc", "*abc"));
+    ASSERT_TRUE(IsMatch("abcabcdddabc", "**abc"));
+    ASSERT_TRUE(IsMatch("abcabcdddabc", "***abc"));
     ASSERT_FALSE(IsMatch("abcacb", "*abc"));
+    ASSERT_FALSE(IsMatch("abcacb", "**abc"));
+    ASSERT_FALSE(IsMatch("abcacb", "***abc"));
     ASSERT_TRUE(IsMatch("abcabcabcddd", "abc*"));
+    ASSERT_TRUE(IsMatch("abcabcabcddd", "abc**"));
+    ASSERT_TRUE(IsMatch("abcabcabcddd", "abc***"));
     ASSERT_FALSE(IsMatch("acbdddabcabc", "abc*"));
+    ASSERT_FALSE(IsMatch("acbdddabcabc", "abc**"));
+    ASSERT_FALSE(IsMatch("acbdddabcabc", "abc***"));
     ASSERT_TRUE(IsMatch("aabbaaabcdd", "*aabc*"));
+    ASSERT_TRUE(IsMatch("aabbaaabcdd", "*aabc**"));
+    ASSERT_TRUE(IsMatch("aabbaaabcdd", "*aabc***"));
     ASSERT_TRUE(IsMatch("aabbaaabc", "*aabc*"));
+    ASSERT_TRUE(IsMatch("aabbaaabc", "**aabc*"));
+    ASSERT_TRUE(IsMatch("aabbaaabc", "*aabc**"));
     ASSERT_TRUE(IsMatch("aabcaaabdd", "*aabc*"));
+    ASSERT_TRUE(IsMatch("aabcaaabdd", "**aabc*"));
+    ASSERT_TRUE(IsMatch("aabcaaabdd", "*aabc**"));
     ASSERT_FALSE(IsMatch("aabbcabbccabc", "*aabc*"));
+    ASSERT_FALSE(IsMatch("aabbcabbccabc", "**aabc*"));
+    ASSERT_FALSE(IsMatch("aabbcabbccabc", "*aabc**"));
     ASSERT_TRUE(IsMatch("aabcaaabdd", "*a?bc*"));
     ASSERT_TRUE(IsMatch("axbcaaabdd", "*a?bc*"));
     ASSERT_FALSE(IsMatch("aacaaabdd", "*a?bc*"));
+    ASSERT_TRUE(IsMatch("abc", "a*?*c"));
+    ASSERT_TRUE(IsMatch("abc", "a**?*c"));
+    ASSERT_TRUE(IsMatch("abc", "a*?**c"));
+    ASSERT_FALSE(IsMatch("ac", "a?c"));
+    ASSERT_FALSE(IsMatch("ac", "a*?*c"));
+    ASSERT_FALSE(IsMatch("ac", "a**?*c"));
+    ASSERT_FALSE(IsMatch("ac", "a*?**c"));
+    ASSERT_TRUE(IsMatch("abbbc", "a*?*c"));
+    ASSERT_TRUE(IsMatch("abbbc", "a**?*c"));
+    ASSERT_TRUE(IsMatch("abbbc", "a*?**c"));
     ASSERT_TRUE(IsMatch("a*c", "a\\*c"));
     ASSERT_FALSE(IsMatch("abc", "a\\*c"));
     ASSERT_TRUE(IsMatch("a?c", "a\\?c"));
     ASSERT_FALSE(IsMatch("abc", "a\\?c"));
+    ASSERT_TRUE(IsMatch("ac\\", "ac\\"));
 }
 
 }

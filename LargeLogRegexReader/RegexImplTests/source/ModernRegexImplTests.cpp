@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <memory>
-#include <stack>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -59,6 +58,7 @@ bool SimpleStringSource::MoveTo(size_t position)
     if (position > _source.size())
         return false;
     _position = position;
+    return true;
 }
 
 bool IsEof(std::string const &str, size_t pos)
@@ -136,7 +136,7 @@ Result::Result(ResultType type, State nextState, State restoreState) : Type(type
 {
 }
 
-struct IHandler
+class IHandler
 {
 public:
     virtual size_t GetId() = 0;

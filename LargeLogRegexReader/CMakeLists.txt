@@ -4,3 +4,4 @@ project(LargeLogRegexReader CXX)
 
 enable_testing()
 add_subdirectory(RegexImplTests bin/RegexImplTests)
+add_subdirectory(ModernLargeLogReaderApp bin/ModernLargeLogReaderApp)

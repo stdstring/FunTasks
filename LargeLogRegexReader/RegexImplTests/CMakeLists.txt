@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories("../external/googletest/include")
 link_directories(../external/googletest/bin)
 
-set(SOURCES ModernRegexImplTests.cpp)
+set(SOURCES source/ModernRegexImplTests.cpp)
 
 set(HEADERS)
 

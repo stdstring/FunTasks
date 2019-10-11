@@ -7,3 +7,5 @@ add_subdirectory(RegexImplTests bin/RegexImplTests)
 add_subdirectory(ModernLargeLogReaderApp bin/ModernLargeLogReaderApp)
 add_subdirectory(OldLargeLogReaderApp bin/OldLargeLogReaderApp)
 add_subdirectory(ReaderAppIntegrationTests bin/ReaderAppIntegrationTests)
+
+file(COPY input DESTINATION .)

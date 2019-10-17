@@ -66,31 +66,40 @@ bool IsEof(std::string const &str, size_t pos)
     return pos >= str.size();
 }
 
+enum CharType { USUAL_CHAR, BACKSLASH, ASTERISK };
+
 std::string PreparePattern(std::string const &source)
 {
     std::string dest;
-    bool isAsterisk = false;
+    CharType lastCharType = CharType::USUAL_CHAR;
     for (std::string::const_iterator iterator = source.cbegin(); iterator != source.cend(); ++iterator)
     {
         char current = *iterator;
-        if (current == Asterisk)
+        switch (lastCharType)
         {
-            if (!isAsterisk)
+        case CharType::BACKSLASH:
+            dest.push_back(current);
+            lastCharType = CharType::USUAL_CHAR;
+            break;
+        case CharType::ASTERISK:
+            if (current != Asterisk)
             {
                 dest.push_back(current);
-                isAsterisk = true;
+                lastCharType = current == Backslash ? CharType::BACKSLASH : CharType::USUAL_CHAR;
             }
-        }
-        else
-        {
+            break;
+        case CharType::USUAL_CHAR:
             dest.push_back(current);
-            isAsterisk = false;
+            lastCharType = CharType::USUAL_CHAR;
+            if (current == Backslash)
+                lastCharType = CharType::BACKSLASH;
+            if (current == Asterisk)
+                lastCharType = CharType::ASTERISK;
+            break;
         }
     }
     // process of single last backslash
-    if (dest.size() == 1 && dest.at(dest.size() - 1) == Backslash)
-        dest.push_back(Backslash);
-    if (dest.size() > 1 && dest.at(dest.size() - 1) == Backslash && dest.at(dest.size() - 2) != Backslash)
+    if (lastCharType == CharType::BACKSLASH)
         dest.push_back(Backslash);
     return dest;
 }
@@ -307,6 +316,13 @@ TEST(ModernRegexImplTests, PreparePattern)
     ASSERT_EQ("\\\\", PreparePattern("\\"));
     ASSERT_EQ("a\\\\", PreparePattern("a\\"));
     ASSERT_EQ("a\\a\\ba\\\\", PreparePattern("a\\a\\ba\\"));
+    ASSERT_EQ("a\\*b", PreparePattern("a\\*b"));
+    ASSERT_EQ("a\\**b", PreparePattern("a\\**b"));
+    ASSERT_EQ("a\\*?b", PreparePattern("a\\*?b"));
+    ASSERT_EQ("a\\?b", PreparePattern("a\\?b"));
+    ASSERT_EQ("a\\??b", PreparePattern("a\\??b"));
+    ASSERT_EQ("a\\?*b", PreparePattern("a\\?*b"));
+    ASSERT_EQ("a*\\**b", PreparePattern("a***\\*****b"));
 }
 
 TEST(ModernRegexImplTests, IsMatch)
@@ -375,9 +391,14 @@ TEST(ModernRegexImplTests, IsMatch)
     ASSERT_TRUE(IsMatch("abbbc", "a*?**c"));
     ASSERT_TRUE(IsMatch("a*c", "a\\*c"));
     ASSERT_FALSE(IsMatch("abc", "a\\*c"));
+    ASSERT_FALSE(IsMatch("a**c", "a\\*c"));
     ASSERT_TRUE(IsMatch("a?c", "a\\?c"));
     ASSERT_FALSE(IsMatch("abc", "a\\?c"));
     ASSERT_TRUE(IsMatch("ac\\", "ac\\"));
+    ASSERT_TRUE(IsMatch("a*c", "a\\**c"));
+    ASSERT_TRUE(IsMatch("a**c", "a\\**c"));
+    ASSERT_TRUE(IsMatch("a***c", "a\\**c"));
+    ASSERT_TRUE(IsMatch("a*ccccc", "a\\**c"));
 }
 
 }

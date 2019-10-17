@@ -8,31 +8,43 @@
 
 namespace LargeLogReader
 {
+    namespace
+    {
+        enum CharType { USUAL_CHAR, BACKSLASH, ASTERISK };
+    }
+
     std::string PreparePattern(std::string const &source)
     {
         std::string dest;
-        bool isAsterisk = false;
+        CharType lastCharType = CharType::USUAL_CHAR;
         for (std::string::const_iterator iterator = source.cbegin(); iterator != source.cend(); ++iterator)
         {
             char current = *iterator;
-            if (current == Asterisk)
+            switch (lastCharType)
             {
-                if (!isAsterisk)
+            case CharType::BACKSLASH:
+                dest.push_back(current);
+                lastCharType = CharType::USUAL_CHAR;
+                break;
+            case CharType::ASTERISK:
+                if (current != Asterisk)
                 {
                     dest.push_back(current);
-                    isAsterisk = true;
+                    lastCharType = current == Backslash ? CharType::BACKSLASH : CharType::USUAL_CHAR;
                 }
-            }
-            else
-            {
+                break;
+            case CharType::USUAL_CHAR:
                 dest.push_back(current);
-                isAsterisk = false;
+                lastCharType = CharType::USUAL_CHAR;
+                if (current == Backslash)
+                    lastCharType = CharType::BACKSLASH;
+                if (current == Asterisk)
+                    lastCharType = CharType::ASTERISK;
+                break;
             }
         }
         // process of single last backslash
-        if (dest.size() == 1 && dest.at(dest.size() - 1) == Backslash)
-            dest.push_back(Backslash);
-        if (dest.size() > 1 && dest.at(dest.size() - 1) == Backslash && dest.at(dest.size() - 2) != Backslash)
+        if (lastCharType == CharType::BACKSLASH)
             dest.push_back(Backslash);
         return dest;
     }

@@ -103,6 +103,14 @@ namespace LargeLogReader
                                             ReaderAppIntegrationData("data.txt", "ab\\*c", {"ab*c"}, 0),
                                             ReaderAppIntegrationData("data.txt", "ab\\**c", {"ab*c"}, 0),
                                             ReaderAppIntegrationData("data.txt", "a\\*b\\*c", {"a*b*c"}, 0),
-                                            ReaderAppIntegrationData("data.txt", "a\\**b\\*c", {}, 0)));
+                                            ReaderAppIntegrationData("data.txt", "a\\**b\\*c", {"a*b*c", "a**b*c", "a*?b*c"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "a\\*b\\**c", {"a*b*c", "a*b**c", "a*b*?c"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "a\\**b\\**c", {"a*b*c", "a**b*c", "a*b**c", "a*?b*c", "a*b*?c", "a*?b*?c"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "a\\*?b\\*c", {"a**b*c", "a*?b*c"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "a\\*b\\*?c", {"a*b**c","a*b*?c"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "a\\*?b\\*?c", {"a*?b*?c"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "a\\?bc", {"a?bc"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "ab\\?c", {"ab?c"}, 0),
+                                            ReaderAppIntegrationData("data.txt", "a\\?b\\?c", {"a?b?c"}, 0)));
 
 }

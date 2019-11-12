@@ -1,0 +1,10 @@
+*.suo
+*.user
+.vs/*
+packages/*
+VariableStateCalcApp/bin/*
+VariableStateCalcApp/obj/*
+VariableStateCalculator/bin/*
+VariableStateCalculator/obj/*
+VariableStateCalculatorTests/bin/*
+VariableStateCalculatorTests/obj/*

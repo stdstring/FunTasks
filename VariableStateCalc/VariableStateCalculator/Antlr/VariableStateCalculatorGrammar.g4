@@ -26,19 +26,13 @@ xVariableDef : 'int' 'x' ('=' NUMBER)? ';';
 
 blockDef : '{' blockStatementDef* '}';
 
-blockStatementDef : blockDef      # blockStatementNestedBlock
-                  | assignmentDef # blockStatementAssignment
-                  | ifDef         # blockStatementIf
-                  ;
+blockStatementDef : blockDef | assignmentDef | ifDef;
 
 assignmentDef : 'x' '=' NUMBER ';';
 
 ifDef : 'if' '(' ID ('[' NUMBER ']')? ')' ifBodyDef;
 
-ifBodyDef : blockDef      # ifBodyBlock
-          | assignmentDef # ifBodyAssignment
-          | ifDef         # ifBodyNestedIf
-          ;
+ifBodyDef : blockDef | assignmentDef | ifDef;
 
 /*
  * Lexer Rules

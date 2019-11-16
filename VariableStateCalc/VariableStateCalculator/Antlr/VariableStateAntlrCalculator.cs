@@ -20,19 +20,19 @@ namespace VariableStateCalculator.Antlr
             ParseTreeWalker walker = new ParseTreeWalker();
             VariableStateCalculatorGrammarListener listener = new VariableStateCalculatorGrammarListener();
             walker.Walk(listener, appDefContext);
-            return listener.StateStack.Peek().OrderBy(value => value).ToArray();
+            return listener.FrameStack.Peek().States.Select(state => state.AssignmentValue).OrderBy(value => value).ToArray();
         }
 
         private class VariableStateCalculatorGrammarListener : VariableStateCalculatorGrammarBaseListener
         {
             public VariableStateCalculatorGrammarListener()
             {
-                StateStack = new Stack<ISet<Int32>>();
+                FrameStack = new Stack<ExecutionFrame>();
             }
 
             public override void EnterEvaluateBodyDef(VariableStateCalculatorGrammarParser.EvaluateBodyDefContext context)
             {
-                StateStack.Push(new HashSet<Int32>());
+                FrameStack.Push(new ExecutionFrame());
                 base.EnterEvaluateBodyDef(context);
             }
 
@@ -42,41 +42,35 @@ namespace VariableStateCalculator.Antlr
                 if (valueNode != null)
                 {
                     Int32 value = Int32.Parse(valueNode.GetText());
-                    StateStack.Peek().Clear();
-                    StateStack.Peek().Add(value);
+                    FrameStack.Peek().States.Clear();
+                    FrameStack.Peek().States.Add(new ExecutionState(value));
                 }
                 base.EnterXVariableDef(context);
             }
 
-            public override void EnterBlockStatementAssignment(VariableStateCalculatorGrammarParser.BlockStatementAssignmentContext context)
+            public override void EnterAssignmentDef(VariableStateCalculatorGrammarParser.AssignmentDefContext context)
             {
-                Int32 value = Int32.Parse(context.assignmentDef().NUMBER().GetText());
-                StateStack.Peek().Clear();
-                StateStack.Peek().Add(value);
-                base.EnterBlockStatementAssignment(context);
+                Int32 value = Int32.Parse(context.NUMBER().GetText());
+                FrameStack.Peek().States.Clear();
+                FrameStack.Peek().States.Add(new ExecutionState(value));
+                base.EnterAssignmentDef(context);
             }
 
-            public override void EnterIfBodyAssignment(VariableStateCalculatorGrammarParser.IfBodyAssignmentContext context)
+            public override void EnterIfDef(VariableStateCalculatorGrammarParser.IfDefContext context)
             {
-                Int32 value = Int32.Parse(context.assignmentDef().NUMBER().GetText());
-                StateStack.Peek().Add(value);
-                base.EnterIfBodyAssignment(context);
+                Int32 usedParameter = Int32.Parse(context.NUMBER().GetText());
+                FrameStack.Push(new ExecutionFrame(usedParameter));
+                base.EnterIfDef(context);
             }
 
-            public override void EnterIfBodyBlock(VariableStateCalculatorGrammarParser.IfBodyBlockContext context)
+            public override void ExitIfDef(VariableStateCalculatorGrammarParser.IfDefContext context)
             {
-                StateStack.Push(new HashSet<Int32>());
-                base.EnterIfBodyBlock(context);
+                ExecutionFrame frame = FrameStack.Pop();
+                FrameStack.Peek().Merge(frame);
+                base.ExitIfDef(context);
             }
 
-            public override void ExitIfBodyBlock(VariableStateCalculatorGrammarParser.IfBodyBlockContext context)
-            {
-                ISet<Int32> blockStates = StateStack.Pop();
-                StateStack.Peek().UnionWith(blockStates);
-                base.ExitIfBodyBlock(context);
-            }
-
-            public Stack<ISet<Int32>> StateStack { get; }
+            public Stack<ExecutionFrame> FrameStack { get; }
         }
     }
 }

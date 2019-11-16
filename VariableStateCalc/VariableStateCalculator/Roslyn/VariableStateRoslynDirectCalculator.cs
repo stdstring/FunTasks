@@ -14,126 +14,147 @@ namespace VariableStateCalculator.Roslyn
             SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
             RoslynCompilationChecker.CheckErrors(tree);
             MethodDeclarationSyntax method = tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().First(decl => decl.Identifier.Text == "Evaluate");
-            Stack<ISet<Int32>> stateStack = new Stack<ISet<Int32>>();
-            stateStack.Push(new HashSet<Int32>());
-            ProcessBlock(method.Body, stateStack);
-            return stateStack.Peek().OrderBy(value => value).ToArray();
+            Stack<ExecutionFrame> frameStack = new Stack<ExecutionFrame>();
+            frameStack.Push(new ExecutionFrame());
+            ProcessBlock(method.Body, frameStack);
+            return frameStack.Peek().States.Select(state => state.AssignmentValue).OrderBy(value => value).ToArray();
         }
 
-        private void ProcessBlock(BlockSyntax block, Stack<ISet<Int32>> stateStack)
+        private void ProcessBlock(BlockSyntax block, Stack<ExecutionFrame> frameStack)
         {
             foreach (SyntaxNode child in block.ChildNodes())
             {
                 if (child is ExpressionStatementSyntax)
                 {
-                    ProcessExpression((ExpressionStatementSyntax) child, stateStack);
+                    ProcessExpression((ExpressionStatementSyntax) child, frameStack);
                 }
                 else if (child is IfStatementSyntax)
                 {
-                    ProcessIf((IfStatementSyntax) child, stateStack);
+                    ProcessIf((IfStatementSyntax) child, frameStack);
                 }
                 else if (child is BlockSyntax)
                 {
-                    ProcessBlock((BlockSyntax) child, stateStack);
+                    ProcessBlock((BlockSyntax) child, frameStack);
                 }
                 else if (child is LocalDeclarationStatementSyntax)
                 {
-                    ProcessLocalDeclaration((LocalDeclarationStatementSyntax) child, stateStack);
+                    ProcessLocalDeclaration((LocalDeclarationStatementSyntax) child, frameStack);
+                }
+                else if (child is ReturnStatementSyntax)
+                {
+                    // do nothing
                 }
                 else
                 {
-                    // warn about unexpected case
+                    // unexpected case
+                    throw new NotSupportedException();
                 }
             }
         }
 
-        private void ProcessLocalDeclaration(LocalDeclarationStatementSyntax localDeclaration, Stack<ISet<Int32>> stateStack)
+        private void ProcessLocalDeclaration(LocalDeclarationStatementSyntax localDeclaration, Stack<ExecutionFrame> frameStack)
         {
-            if (localDeclaration.Declaration.Variables.Count == 1)
+            if (localDeclaration.Declaration.Variables.Count != 1)
             {
-                VariableDeclaratorSyntax variable = localDeclaration.Declaration.Variables[0];
-                String variableId = variable.Identifier.Text;
-                if (variableId == VariableName)
-                {
-                    IList<SyntaxNode> variableChildren = variable.ChildNodes().ToList();
-                    if (variableChildren.Count == 1 && variableChildren[0] is EqualsValueClauseSyntax)
-                    {
-                        EqualsValueClauseSyntax value = (EqualsValueClauseSyntax) variableChildren[0];
-                        stateStack.Peek().Clear();
-                        stateStack.Peek().Add(Int32.Parse(value.Value.GetText().ToString()));
-                    }
-                }
-                else
-                {
-                    // warn about unexpected case
-                }
+                // unexpected case
+                throw new NotSupportedException();
             }
-            else
+            VariableDeclaratorSyntax variable = localDeclaration.Declaration.Variables[0];
+            String variableId = variable.Identifier.Text;
+            if (variableId != VariableName)
             {
-                // warn about unexpected case
+                // unexpected case
+                throw new NotSupportedException();
+            }
+            IList<SyntaxNode> variableChildren = variable.ChildNodes().ToList();
+            if (variableChildren.Count == 1 && variableChildren[0] is EqualsValueClauseSyntax)
+            {
+                EqualsValueClauseSyntax value = (EqualsValueClauseSyntax)variableChildren[0];
+                frameStack.Peek().States.Clear();
+                frameStack.Peek().States.Add(new ExecutionState(Int32.Parse(value.Value.GetText().ToString())));
             }
         }
 
-        private void ProcessExpression(ExpressionStatementSyntax expression, Stack<ISet<Int32>> stateStack)
+        private void ProcessExpression(ExpressionStatementSyntax expression, Stack<ExecutionFrame> frameStack)
         {
-            if (expression.Expression.Kind() == SyntaxKind.SimpleAssignmentExpression)
+            if (expression.Expression.Kind() != SyntaxKind.SimpleAssignmentExpression)
             {
-                AssignmentExpressionSyntax assignmentExpression = (AssignmentExpressionSyntax) expression.Expression;
-                ExpressionSyntax left = assignmentExpression.Left;
-                ExpressionSyntax right = assignmentExpression.Right;
-                if (left is IdentifierNameSyntax && right is LiteralExpressionSyntax)
-                {
-                    String identifier = ((IdentifierNameSyntax) left).Identifier.Text;
-                    Object value = ((LiteralExpressionSyntax) right).Token.Value;
-                    if (identifier == VariableName)
-                    {
-                        stateStack.Peek().Clear();
-                        stateStack.Peek().Add((Int32) value);
-                    }
-                    else
-                    {
-                        // warn about unexpected case
-                    }
-                }
-                else
-                {
-                    // warn about unexpected case
-                }
+                // unexpected case
+                throw new NotSupportedException();
             }
-            else
+            AssignmentExpressionSyntax assignmentExpression = (AssignmentExpressionSyntax)expression.Expression;
+            IdentifierNameSyntax left = assignmentExpression.Left as IdentifierNameSyntax;
+            LiteralExpressionSyntax right = assignmentExpression.Right as LiteralExpressionSyntax;
+            if (left == null || right == null)
             {
-                // warn about unexpected case
+                // unexpected case
+                throw new NotSupportedException();
             }
+            String identifier = left.Identifier.Text;
+            Object value = right.Token.Value;
+            if (identifier != VariableName)
+            {
+                // unexpected case
+                throw new NotSupportedException();
+            }
+            frameStack.Peek().States.Clear();
+            frameStack.Peek().States.Add(new ExecutionState((Int32) value));
         }
 
-        private void ProcessIf(IfStatementSyntax ifStatement, Stack<ISet<Int32>> stateStack)
+        private void ProcessIf(IfStatementSyntax ifStatement, Stack<ExecutionFrame> frameStack)
         {
-            SyntaxNode bodyNode = ifStatement.ChildNodes().Last();
+            if (ifStatement.Else != null)
+            {
+                // unexpected case
+                throw new NotSupportedException();
+            }
+            Int32 usedParameter = ExtractParameterFromCondition(ifStatement.Condition);
+            StatementSyntax ifBody = ifStatement.Statement;
+            frameStack.Push(new ExecutionFrame(usedParameter));
+            ProcessIfImpl(ifBody, frameStack);
+            ExecutionFrame frame = frameStack.Pop();
+            frameStack.Peek().Merge(frame);
+        }
+
+        private void ProcessIfImpl(StatementSyntax ifBody, Stack<ExecutionFrame> frameStack)
+        {
             // process the following case: if (BOOL_EXPR) ID = VALUE;
-            if (bodyNode is ExpressionStatementSyntax)
+            if (ifBody is ExpressionStatementSyntax)
             {
-                stateStack.Push(new HashSet<Int32>());
-                ProcessExpression((ExpressionStatementSyntax) bodyNode, stateStack);
-                ISet<Int32> expressionState = stateStack.Pop();
-                stateStack.Peek().UnionWith(expressionState);
+                ProcessExpression((ExpressionStatementSyntax)ifBody, frameStack);
             }
             // process the following case: if (BOOL_EXPR) { ... }
-            else if (bodyNode is BlockSyntax)
+            else if (ifBody is BlockSyntax)
             {
-                stateStack.Push(new HashSet<Int32>());
-                ProcessBlock((BlockSyntax) bodyNode, stateStack);
-                ISet<Int32> expressionState = stateStack.Pop();
-                stateStack.Peek().UnionWith(expressionState);
+                ProcessBlock((BlockSyntax)ifBody, frameStack);
             }
             // process the following case: if (BOOL_EXPR1) if (BOOL_EXPR2) ...
-            else if (bodyNode is IfStatementSyntax)
+            else if (ifBody is IfStatementSyntax)
             {
-                ProcessIf((IfStatementSyntax) bodyNode, stateStack);
+                ProcessIf((IfStatementSyntax)ifBody, frameStack);
             }
             else
             {
-                // warn about unexpected case
+                // unexpected case
+                throw new NotSupportedException();
             }
+        }
+
+        private Int32 ExtractParameterFromCondition(ExpressionSyntax condition)
+        {
+            ElementAccessExpressionSyntax elementAccessExpression = condition as ElementAccessExpressionSyntax;
+            if (elementAccessExpression == null)
+            {
+                // unexpected case
+                throw new NotSupportedException();
+            }
+            BracketedArgumentListSyntax args = elementAccessExpression.ArgumentList;
+            if (args.Arguments.Count != 1)
+            {
+                // unexpected case
+                throw new NotSupportedException();
+            }
+            return Int32.Parse(args.Arguments[0].Expression.GetText().ToString());
         }
 
         private const String VariableName = "x";

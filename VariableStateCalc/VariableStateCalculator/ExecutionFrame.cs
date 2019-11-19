@@ -30,7 +30,8 @@ namespace VariableStateCalculator
             foreach (ExecutionState childState in childFrame.States)
             {
                 List<Int32> usedParameters = new List<Int32>(childState.UsedParameters);
-                usedParameters.Add(parameter);
+                if (!usedParameters.Contains(parameter))
+                    usedParameters.Add(parameter);
                 usedParameters.Sort();
                 ExecutionState newState = new ExecutionState(usedParameters, childState.AssignmentValue);
                 ExecutionState existingState = States.FirstOrDefault(state => IsPrefix(usedParameters, state.UsedParameters));

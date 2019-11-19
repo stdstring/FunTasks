@@ -14,7 +14,7 @@ namespaceName : ID | FULL_QUALIFIED_ID;
 
 rootClassDef : ('public')? 'class' ID '{' (mainMethodDef evaluateMethodDef | evaluateMethodDef mainMethodDef) '}';
 
-mainMethodDef : ('public')? 'static' 'void' 'Main' '(' ')' '{' mainMethodBodyEntry* '}';
+mainMethodDef : ('public')? 'static' 'void' 'Main' '(' ('string[]' ID)? ')' '{' mainMethodBodyEntry* '}';
 
 mainMethodBodyEntry : ('System.Console.WriteLine' | 'Console.WriteLine') '(' 'Evaluate' '(' ( BOOL_VALUE (',' BOOL_VALUE)*)? ')' ')' ';';
 

@@ -20,6 +20,7 @@ namespace VariableStateCalculatorTests
         [TestCase(TaskExample2, new[] {1, 4, 5, 6})]
         [TestCase(TaskExample3, new[] {0, 6})]
         [TestCase(TaskExample4, new[] {0, 99})]
+        [TestCase(TaskExample5, new[] {0, 7})]
         public void CheckVariableStateAntlrCalculator(String source, Int32[] expectedStates)
         {
             VariableStateAntlrCalculator calculator = new VariableStateAntlrCalculator();
@@ -38,6 +39,7 @@ namespace VariableStateCalculatorTests
         [TestCase(TaskExample2, new[] {1, 4, 5, 6})]
         [TestCase(TaskExample3, new[] {0, 6})]
         [TestCase(TaskExample4, new[] {0, 99})]
+        [TestCase(TaskExample5, new[] {0, 7})]
         public void CheckVariableStateRoslynDirectCalculator(String source, Int32[] expectedStates)
         {
             VariableStateRoslynDirectCalculator calculator = new VariableStateRoslynDirectCalculator();
@@ -56,6 +58,7 @@ namespace VariableStateCalculatorTests
         [TestCase(TaskExample2, new[] {1, 4, 5, 6})]
         [TestCase(TaskExample3, new[] {0, 6})]
         [TestCase(TaskExample4, new[] {0, 99})]
+        [TestCase(TaskExample5, new[] {0, 7})]
         public void CheckVariableStateRoslynWalkerCalculator(String source, Int32[] expectedStates)
         {
             VariableStateRoslynWalkerCalculator calculator = new VariableStateRoslynWalkerCalculator();
@@ -434,6 +437,35 @@ namespace VariableStateCalculatorTests
                                             "                    x = 11;\r\n" +
                                             "                }\r\n" +
                                             "                x = 99;\r\n" +
+                                            "            }\r\n" +
+                                            "            return x;\r\n" +
+                                            "        }\r\n" +
+                                            "    }\r\n" +
+                                            "}";
+
+        private const String TaskExample5 = "using System;\r\n" +
+                                            "namespace ConsoleApp\r\n" +
+                                            "{\r\n" +
+                                            "    class Program\r\n" +
+                                            "    {\r\n" +
+                                            "        static void Main(string[] args)\r\n" +
+                                            "        {\r\n" +
+                                            "            Console.WriteLine(Evaluate(true, false, false, false));\r\n" +
+                                            "        }\r\n" +
+                                            "        static int Evaluate(params bool[] parameters)\r\n" +
+                                            "        {\r\n" +
+                                            "            int x = 0;\r\n" +
+                                            "            if (parameters[0])\r\n" +
+                                            "            {\r\n" +
+                                            "                x = 5;\r\n" +
+                                            "            }\r\n" +
+                                            "            if (parameters[0])\r\n" +
+                                            "            {\r\n" +
+                                            "                x = 6;\r\n" +
+                                            "                if (parameters[0])\r\n" +
+                                            "                {\r\n" +
+                                            "                    x = 7;\r\n" +
+                                            "                }\r\n" +
                                             "            }\r\n" +
                                             "            return x;\r\n" +
                                             "        }\r\n" +

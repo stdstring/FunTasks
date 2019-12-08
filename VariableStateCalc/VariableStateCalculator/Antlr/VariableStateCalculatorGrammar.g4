@@ -4,7 +4,7 @@ grammar VariableStateCalculatorGrammar;
  * Parser Rules
  */
 
-appDef : (usingDef)* namespaceDef;
+appDef : (usingDef)* namespaceDef EOF;
 
 usingDef : 'using' (ID | FULL_QUALIFIED_ID) ';';
 

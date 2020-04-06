@@ -1,4 +1,5 @@
 # Fun tasks
+* [Examples of the using of python mip](PythonMIP)
 * [TicTacToe for MSSQL](MSSQL_TicTacToe)
 
 # Test tasks known for me

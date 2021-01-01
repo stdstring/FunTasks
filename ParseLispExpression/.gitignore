@@ -1,0 +1,6 @@
+*.suo
+*.user
+.vs/*
+packages/*
+ParseLispExpression/bin/*
+ParseLispExpression/obj/*

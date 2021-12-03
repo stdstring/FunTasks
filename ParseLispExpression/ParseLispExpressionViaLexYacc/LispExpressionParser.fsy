@@ -1,0 +1,33 @@
+﻿%{
+open LispExpressionDefs
+%}
+
+%token <string> ID
+%token <int> INT
+%token ADD MULT LET
+%token OPEN_BRACKET CLOSE_BRACKET
+%token EOF
+
+%start start
+%type <LispExpressionDefs.Expression> start
+
+%%
+
+start: expression EOF { $1 }
+
+addExpression: OPEN_BRACKET ADD expression expression CLOSE_BRACKET { Expression.Add (left=$3, right=$4) }
+
+multExpression: OPEN_BRACKET MULT expression expression CLOSE_BRACKET { Expression.Mult (left=$3, right=$4) }
+
+letExpression:  OPEN_BRACKET LET variableExpressionPairList expression CLOSE_BRACKET { Expression.Let (variables=List.rev $3, result=$4) }
+
+variableExpressionPairList:
+    | ID expression { [($1, $2)] }
+    | variableExpressionPairList ID expression { ($2, $3) :: $1 }
+
+expression:
+    | INT { Expression.Number(value = $1) }
+    | ID { Expression.Variable(name = $1) }
+    | addExpression { $1 }
+    | multExpression { $1 }
+    | letExpression { $1 }

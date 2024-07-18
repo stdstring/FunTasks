@@ -1,0 +1,8 @@
+*.suo
+*.user
+.vs/*
+packages/*
+ParseLispExpression/bin/*
+ParseLispExpression/obj/*
+ParseLispExpressionViaLexYacc/bin/*
+ParseLispExpressionViaLexYacc/obj/*

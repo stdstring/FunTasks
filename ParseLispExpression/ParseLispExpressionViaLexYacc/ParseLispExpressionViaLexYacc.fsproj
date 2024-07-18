@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FsLexYacc" Version="11.3.0" />
+    <PackageReference Include="FsLexYacc.Runtime" Version="11.3.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageReference Include="NUnit" Version="4.1.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+    <PackageReference Update="FSharp.Core" Version="8.0.301" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <FsLexToolPath>$(PkgFsLexYacc)\build\fslex\net6.0</FsLexToolPath>
+    <FsLexToolExe>fslex.dll</FsLexToolExe>
+    <FsYaccToolPath>$(PkgFsLexYacc)\build\fsyacc\net6.0</FsYaccToolPath>
+    <FsYaccToolExe>fsyacc.dll</FsYaccToolExe>
+    <FsLexYaccToolRunner>dotnet </FsLexYaccToolRunner>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="LispExpressionDefs.fs" />
+    <None Include="LispExpressionParser.fsy" />
+    <None Include="LispExpressionLexer.fsl" />
+    <FsYacc Include="LispExpressionParser.fsy">
+      <OtherFlags>--module LispExpressionParser</OtherFlags>
+    </FsYacc>
+    <FsLex Include="LispExpressionLexer.fsl">
+      <OtherFlags>--module LispExpressionLexer --unicode</OtherFlags>
+    </FsLex>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="LispExpressionParser.fsi" />
+    <Compile Include="LispExpressionParser.fs" />
+    <Compile Include="LispExpressionLexer.fs" />
+    <Compile Include="ExpressionParserTests.fs" />
+  </ItemGroup>
+
+</Project>

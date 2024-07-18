@@ -1,0 +1,28 @@
+﻿{
+open LispExpressionParser
+open FSharp.Text.Lexing
+
+let keywords = Map [("add", ADD); ("mult", MULT); ("let", LET)]
+
+let brackets = Map [("(", OPEN_BRACKET); (")", CLOSE_BRACKET)]
+
+}
+
+let char         = ['a'-'z' 'A'-'Z']
+let digit        = ['0'-'9']
+let int          = '-'?digit+
+let identifier   = char(char|digit)*
+let whitespace   = [' ' '\t']
+let newline      = "\n\r" | '\n' | '\r'
+let bracket = '(' | ')'
+
+rule tokenize = parse
+| whitespace    { tokenize lexbuf }
+| newline       { lexbuf.EndPos <- lexbuf.EndPos.NextLine; tokenize lexbuf }
+| int           { INT(System.Int32.Parse(LexBuffer<_>.LexemeString lexbuf)) }
+| bracket       { brackets.[LexBuffer<_>.LexemeString lexbuf] }
+| identifier    { let lexeme = LexBuffer<_>.LexemeString lexbuf
+                  match keywords.TryFind(lexeme) with
+                  | Some(token) -> token
+                  | None -> ID(lexeme) }
+| eof           { EOF }

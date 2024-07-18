@@ -17,4 +17,4 @@ type ExpressionParserTests() =
     member public this.EvaluateLispExpression(expression: string, expectedValue: int) =
         let expressionParser = new ExpressionParser()
         let actualValue = expression |> expressionParser.Evaluate
-        Assert.AreEqual(expectedValue, actualValue)
+        Assert.That(actualValue, expectedValue |> Is.EqualTo)

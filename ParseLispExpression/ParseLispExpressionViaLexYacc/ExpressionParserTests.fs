@@ -19,4 +19,4 @@ type ExpressionParserTests() =
         let lexbuf = LexBuffer<_>.FromString expression
         let expressionTree = LispExpressionParser.start LispExpressionLexer.tokenize lexbuf
         let actualValue = expressionTree |> LispExpressionDefs.calcExpressionValue
-        Assert.AreEqual(expectedValue, actualValue)
+        Assert.That(actualValue, expectedValue |> Is.EqualTo)
